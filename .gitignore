@@ -1,0 +1,26 @@
+# Roblox Studio
+*.rbxl
+*.rbxlx
+
+# Wally packages (régénérables via wally install)
+Packages/
+
+# Rojo build artifacts
+build/
+
+# Selene defs générées (régénérables via selene generate-roblox-std)
+roblox.toml
+roblox.yml
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editeurs
+.vscode/settings.json
+*.code-workspace
+.idea/
+
+# Logs
+*.log

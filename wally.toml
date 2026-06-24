@@ -1,0 +1,9 @@
+[package]
+name = "theinterview/game"
+version = "0.1.0"
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "shared"
+
+[dependencies]
+# Exemple : décommente pour ajouter une lib
+# Promise = "evaera/promise@4.0.0"
