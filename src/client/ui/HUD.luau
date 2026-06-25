@@ -34,6 +34,7 @@ local ROLE_FR: { [string]: string } = {
 	HonestWitness = "TÉMOIN",
 	Liar = "MENTEUR",
 	Prosecutor = "AVOCAT",
+	Defense = "DÉFENSE",
 	Juror = "JURÉ",
 }
 
@@ -41,6 +42,7 @@ local ROLE_COLOR: { [string]: Color3 } = {
 	HonestWitness = Color3.fromRGB(34, 139, 34),
 	Liar = UIUtils.Color.Crimson,
 	Prosecutor = UIUtils.Color.Navy,
+	Defense = Color3.fromRGB(120, 80, 160),
 	Juror = Color3.fromRGB(100, 100, 160),
 }
 

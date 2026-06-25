@@ -14,7 +14,8 @@ export type MatchPhase =
 
 export type GameFormat = "Solo" | "Duel" | "Mini" | "Full"
 
-export type PlayerRole = "HonestWitness" | "Liar" | "Prosecutor" | "Juror"
+-- Defense ajouté en 1.3 (Milestone 1.3)
+export type PlayerRole = "HonestWitness" | "Liar" | "Prosecutor" | "Defense" | "Juror"
 
 export type VerdictValue = "Guilty" | "Innocent"
 
@@ -22,7 +23,7 @@ export type VerdictValue = "Guilty" | "Innocent"
 export type SessionProfile = {
 	UserId: number,
 	DisplayName: string,
-	JoinedAt: number, -- tick() au moment du PlayerAdded
+	JoinedAt: number,
 }
 
 -- État complet d'une partie en cours (server-only)
@@ -30,23 +31,27 @@ export type MatchState = {
 	MatchId: string,
 	Phase: MatchPhase,
 	Format: GameFormat,
-	PlayerRoles: { [number]: PlayerRole }, -- [UserId] = Role
-	Votes: { [number]: VerdictValue }, -- [UserId] = Vote (Phase 2)
-	PhaseStartedAt: number, -- tick()
-	PhaseTimer: thread?, -- task.delay handle, annulable
+	PlayerRoles: { [number]: PlayerRole },
+	Votes: { [number]: VerdictValue },
+	PhaseStartedAt: number,
+	PhaseTimer: thread?,
 }
 
--- Payload envoyé au client lors d'un changement de phase
+-- Payload envoyé à tous les clients lors d'un changement de phase
 export type PhaseChangedPayload = {
 	Phase: MatchPhase,
-	Duration: number, -- durée prévue de cette phase en secondes
+	Duration: number,
 	MatchId: string,
+	Format: string, -- GameFormat transmis comme string dans le payload réseau
+	PlayerCount: number,
 }
 
--- Payload envoyé individuellement au client pour son rôle
+-- Payload envoyé INDIVIDUELLEMENT au client pour son rôle (jamais broadcast)
 export type RoleAssignedPayload = {
 	Role: PlayerRole,
 	MatchId: string,
+	DisplayName: string,
+	ShortDescription: string,
 }
 
 return {}
