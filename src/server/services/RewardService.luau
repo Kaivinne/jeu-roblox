@@ -1,7 +1,7 @@
 --!strict
 -- Calcule et attribue les récompenses en fin de partie.
 -- Toutes les décisions de récompense sont server-side.
--- Milestone 1.6 : Jetons participation + bonus verdict correct, Perspicacité, Rang.
+-- Milestone 1.7 : détection de montée de rang (RangPrecedent dans ProfileUpdated).
 
 local Players = game:GetService("Players")
 
@@ -28,7 +28,6 @@ function RewardService.grantPostVerdict(
 	for _, player in ipairs(players) do
 		local userId = player.UserId
 
-		-- Participation : tout le monde reçoit des Jetons de base
 		local jetons = JETONS_PARTICIPATION
 		local isCorrect: boolean? = nil
 
@@ -40,7 +39,10 @@ function RewardService.grantPostVerdict(
 			end
 		end
 
-		-- Mettre à jour le profil
+		-- Capturer le rang AVANT les mutations pour détecter un changement
+		local profile = PlayerDataService.ensureGameProfile(userId)
+		local oldRang = profile.RangActuel
+
 		PlayerDataService.addJetons(userId, jetons)
 		PlayerDataService.incrementParties(userId)
 
@@ -50,23 +52,21 @@ function RewardService.grantPostVerdict(
 			PlayerDataService.recordVerdictIncorrect(userId)
 		end
 
-		local profile = PlayerDataService.getGameProfile(userId)
-		if not profile then
-			continue
-		end
+		-- profile est la même référence, maintenant mutée
+		local rangMonte = profile.RangActuel ~= oldRang
 
 		print(
 			string.format(
-				"[RewardService] %s → +%d Jetons (verdict: %s) | Perspicacité: %d | Rang: %s",
+				"[RewardService] %s → +%d Jetons (verdict: %s) | Perspicacité: %d | Rang: %s%s",
 				player.DisplayName,
 				jetons,
 				if isCorrect == nil then "N/A" elseif isCorrect then "correct" else "incorrect",
 				profile.Perspicacite,
-				profile.RangActuel
+				profile.RangActuel,
+				if rangMonte then " ↑ (montée de rang)" else ""
 			)
 		)
 
-		-- Notifier le client
 		Net.fire(player, RemoteNames.RewardGranted, {
 			XP = 0,
 			Jetons = jetons,
@@ -78,12 +78,12 @@ function RewardService.grantPostVerdict(
 			PartiesJouees = profile.PartiesJouees,
 			VerdictsCorrects = profile.VerdictsCorrects,
 			VerdictsIncorrects = profile.VerdictsIncorrects,
+			RangPrecedent = if rangMonte then oldRang else nil,
 		})
 	end
 end
 
 -- Envoie le profil actuel au client sans modifier les données.
--- Utile pour initialiser le ProfilePanel au chargement.
 function RewardService.pushProfile(player: Player)
 	local profile = PlayerDataService.getGameProfile(player.UserId)
 	if not profile then
@@ -96,10 +96,10 @@ function RewardService.pushProfile(player: Player)
 		PartiesJouees = profile.PartiesJouees,
 		VerdictsCorrects = profile.VerdictsCorrects,
 		VerdictsIncorrects = profile.VerdictsIncorrects,
+		RangPrecedent = nil,
 	})
 end
 
--- Pousse le profil initial à tous les joueurs présents (appelé depuis MatchService.init)
 function RewardService.pushAllProfiles()
 	for _, player in ipairs(Players:GetPlayers()) do
 		RewardService.pushProfile(player)

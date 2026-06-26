@@ -81,6 +81,7 @@ export type ProfileUpdatedPayload = {
 	PartiesJouees: number,
 	VerdictsCorrects: number,
 	VerdictsIncorrects: number,
+	RangPrecedent: string?, -- non nil si le rang vient de monter
 }
 
 -- Payload envoyé individuellement à chaque joueur au début de Intro

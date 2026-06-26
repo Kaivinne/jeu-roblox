@@ -50,11 +50,11 @@ local function selectFormat(count: number): Types.GameFormat
 end
 
 local ROLE_OBJECTIVES: { [string]: string } = {
-	HonestWitness = "Déclarez la vérité. Faites-vous croire par les jurés.",
-	Liar = "Mentez de manière convaincante. Ne vous faites pas démasquer.",
-	Prosecutor = "Questionnez. Repérez les incohérences. Guidez les jurés.",
-	Defense = "Défendez l'accusé. Semez le doute raisonnable.",
-	Juror = "Observez les déclarations. Votez en votre âme et conscience.",
+	HonestWitness = "Déclarez la vérité sur votre alibi. Votre crédibilité doit convaincre les jurés.",
+	Liar = "Mentez sans vous trahir. Une seule incohérence peut vous démasquer.",
+	Prosecutor = "Questionnez les déclarations. Repérez les contradictions et guidez les jurés.",
+	Defense = "Défendez l'accusé. Semez le doute et protégez son alibi.",
+	Juror = "Écoutez attentivement la déclaration. Votez COUPABLE si vous pensez que le témoin ment.",
 }
 
 local function getRoleObjective(role: Types.PlayerRole?): string
@@ -197,6 +197,17 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 		state.Declarations = {}
 		state.NpcIsLiar = false
 		state.MatchId = ""
+	end
+
+	-- Avertir les Jurés qui n'ont pas voté avant de passer en PostVerdict
+	if newPhase == "PostVerdict" then
+		for _, player in ipairs(Players:GetPlayers()) do
+			if state.PlayerRoles[player.UserId] == "Juror" and not state.Votes[player.UserId] then
+				Net.fire(player, RemoteNames.ActionRejected, {
+					Message = "Temps écoulé — vous n'avez pas voté. Votre voix n'est pas comptabilisée.",
+				})
+			end
+		end
 	end
 
 	state.Phase = newPhase
@@ -469,6 +480,39 @@ function MatchService.init()
 					MatchService.startMatch()
 				end
 			end)
+		end
+	end)
+
+	-- Déconnexion pendant une partie : nettoyage et arrêt si plus de joueurs réels
+	Players.PlayerRemoving:Connect(function(player)
+		if not MatchStateMachine.isActivePhase(state.Phase) then
+			return
+		end
+		state.PlayerRoles[player.UserId] = nil
+		state.Votes[player.UserId] = nil
+		state.Declarations[player.UserId] = nil
+		print(string.format("[MatchService] %s a quitté en phase %s", player.DisplayName, state.Phase))
+		-- Compter les joueurs humains restants (UserId > 0)
+		local realPlayers = 0
+		for userId in pairs(state.PlayerRoles) do
+			if userId > 0 then
+				realPlayers += 1
+			end
+		end
+		if realPlayers == 0 then
+			print("[MatchService] Plus de joueurs — abandon de la partie, retour au Lobby")
+			if state.PhaseTimer then
+				task.cancel(state.PhaseTimer)
+				state.PhaseTimer = nil
+			end
+			-- Réinitialisation directe (contournement volontaire de la state machine)
+			state.Phase = "Lobby"
+			state.PlayerRoles = {}
+			state.Votes = {}
+			state.Declarations = {}
+			state.NpcIsLiar = false
+			state.MatchId = ""
+			state.PhaseStartedAt = tick()
 		end
 	end)
 

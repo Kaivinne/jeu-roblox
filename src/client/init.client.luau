@@ -1,5 +1,5 @@
 --!strict
--- Point d'entrée client — Milestone 1.4.
+-- Point d'entrée client — Milestone 1.7.
 -- Initialise tous les modules UI et câble les événements réseau.
 -- Le client n'a aucune logique de jeu : il affiche et envoie des intentions.
 
@@ -14,6 +14,7 @@ local IntroScreen = require(script.ui.IntroScreen)
 local ReactionBar = require(script.ui.ReactionBar)
 local DeclarationBuilder = require(script.ui.DeclarationBuilder)
 local VerdictScreen = require(script.ui.VerdictScreen)
+local SummaryScreen = require(script.ui.SummaryScreen)
 local ProfilePanel = require(script.ui.ProfilePanel)
 
 -- Rôle local du joueur (assigné par le serveur pendant Matchmaking)
@@ -25,6 +26,7 @@ IntroScreen.setup()
 ReactionBar.setup()
 DeclarationBuilder.setup()
 VerdictScreen.setup()
+SummaryScreen.setup()
 ProfilePanel.setup()
 -- Toast est lazy-initialized à la première notification
 
@@ -34,6 +36,7 @@ local function hideAllPanels()
 	ReactionBar.hide()
 	DeclarationBuilder.hide()
 	VerdictScreen.hide()
+	SummaryScreen.hide()
 end
 
 -- Détermine quel panneau montrer selon la phase et le rôle local
@@ -52,16 +55,18 @@ local function applyPhaseUI(phase: string)
 			ReactionBar.show()
 		end
 	elseif phase == "Verdict" then
-		-- Seuls les Jurés votent (les autres voient juste le timer)
 		if currentRole == "Juror" then
 			VerdictScreen.show()
+		else
+			-- Les non-jurés attendent le résultat passivement
+			Toast.info("Phase de verdict en cours — attendez le résultat des jurés.")
 		end
 	elseif phase == "Lobby" then
 		Toast.info("En attente de joueurs...")
 	elseif phase == "Matchmaking" then
 		Toast.info("Préparation de la partie...")
-	elseif phase == "PostVerdict" then
-		Toast.success("Partie terminée — résultats en cours...")
+		-- Réinitialiser le rôle en attente du prochain RoleAssigned
+		currentRole = ""
 	end
 end
 
@@ -99,7 +104,6 @@ end)
 Net.onClient(RemoteNames.CaseIntroReceived, function(payload)
 	local typed = payload :: Types.CaseIntroPayload
 
-	-- Charger les options dans DeclarationBuilder pour les témoins
 	local isWitness = currentRole == "HonestWitness" or currentRole == "Liar"
 	if isWitness then
 		local guide: { [string]: number }? = nil
@@ -113,7 +117,6 @@ Net.onClient(RemoteNames.CaseIntroReceived, function(payload)
 		DeclarationBuilder.loadCase(typed.Fields, guide, liarHint)
 	end
 
-	-- Afficher l'écran d'introduction
 	IntroScreen.show(
 		typed.CaseId,
 		typed.Title,
@@ -124,7 +127,7 @@ Net.onClient(RemoteNames.CaseIntroReceived, function(payload)
 	)
 end)
 
--- Action refusée par le serveur
+-- Action refusée par le serveur (double vote, hors-phase, etc.)
 Net.onClient(RemoteNames.ActionRejected, function(payload)
 	local message = payload.Message
 	if type(message) == "string" then
@@ -157,11 +160,11 @@ Net.onClient(RemoteNames.DeclarationBroadcast, function(payload)
 	end
 end)
 
--- Contradiction détectée par le serveur — alerte visuelle subtile
+-- Contradiction détectée par le serveur — alerte subtile
 Net.onClient(RemoteNames.ContradictionDetected, function(payload)
 	local field = payload.Field
 	if type(field) == "string" then
-		Toast.error("Une incohérence semble apparaître…")
+		Toast.error("Une incohérence semble apparaître dans les déclarations…")
 	end
 end)
 
@@ -173,82 +176,69 @@ Net.onClient(RemoteNames.ReactionBroadcast, function(payload)
 	end
 end)
 
--- Verdict révélé par le serveur (déclenché lors du passage en PostVerdict)
+-- Verdict révélé — affiche le SummaryScreen pour tous les rôles
 Net.onClient(RemoteNames.VerdictRevealed, function(payload)
 	local verdict = payload.Verdict
 	local guiltyCount = payload.GuiltyCount
-	if type(verdict) ~= "string" or type(guiltyCount) ~= "number" then
-		return
-	end
-
-	-- Afficher le résultat du vote (pour tout le monde via le panneau ou un toast)
-	if currentRole == "Juror" then
-		VerdictScreen.showResult(verdict, guiltyCount)
-	else
-		local verdictText = verdict == "Guilty"
-				and string.format("VERDICT : COUPABLE (%d vote(s))", guiltyCount)
-			or string.format("VERDICT : INNOCENT (%d vote(s))", guiltyCount)
-		Toast.success(verdictText)
-	end
-
-	-- Révéler la vérité (pour tous)
 	local caseTitle = payload.CaseTitle
 	local truthSummary = payload.TruthSummary
-	local liarUserId = payload.LiarUserId
 	local liarLied = payload.LiarLied
 	local liarDeclaration = payload.LiarDeclaration
 
-	if type(caseTitle) == "string" and type(truthSummary) == "table" then
-		local liarId: number = if type(liarUserId) == "number" then liarUserId else 0
-		local didLie: boolean = if type(liarLied) == "boolean" then liarLied else false
-		local liarDecl: { string } = if type(liarDeclaration) == "table"
-			then liarDeclaration :: { string }
-			else {}
-
-		-- Afficher la révélation dans VerdictScreen (visible pour Jurés)
-		-- Les autres voient les infos en toast
-		if currentRole == "Juror" then
-			local truth = truthSummary :: { { Key: string, Value: string } }
-			VerdictScreen.showTruth(caseTitle, truth, liarId, didLie, liarDecl)
-			-- Feedback correct/incorrect basé sur le vote local
-			local playerVote = VerdictScreen.getLastVote()
-			if playerVote ~= "" then
-				local votedGuilty = playerVote == "Guilty"
-				local isCorrect = (votedGuilty and didLie) or (not votedGuilty and not didLie)
-				task.delay(2, function()
-					if isCorrect then
-						Toast.success("Votre verdict était correct !")
-					else
-						Toast.error("Votre verdict était incorrect.")
-					end
-				end)
-			end
-		else
-			if didLie then
-				Toast.error("Le Menteur a bien menti !")
-			else
-				Toast.info("Le Menteur n'a pas menti — ou n'a pas déclaré.")
-			end
-		end
+	if type(verdict) ~= "string" or type(guiltyCount) ~= "number" then
+		return
 	end
+	if type(caseTitle) ~= "string" or type(truthSummary) ~= "table" then
+		return
+	end
+
+	local didLie: boolean = if type(liarLied) == "boolean" then liarLied else false
+	local liarDecl: { string } = if type(liarDeclaration) == "table"
+		then liarDeclaration :: { string }
+		else {}
+	local truth = truthSummary :: { { Key: string, Value: string } }
+
+	-- Calculer correct/incorrect pour le Juré
+	local playerVote = VerdictScreen.getLastVote()
+	local isCorrect: boolean? = nil
+	if currentRole == "Juror" and playerVote ~= "" then
+		local votedGuilty = playerVote == "Guilty"
+		isCorrect = (votedGuilty and didLie) or (not votedGuilty and not didLie)
+	end
+
+	SummaryScreen.show(
+		caseTitle,
+		truth,
+		liarDecl,
+		didLie,
+		playerVote,
+		isCorrect,
+		currentRole,
+		guiltyCount
+	)
 end)
 
--- Récompenses attribuées — toast récapitulatif
+-- Récompenses attribuées — met à jour SummaryScreen et affiche un toast
 Net.onClient(RemoteNames.RewardGranted, function(payload)
 	local jetons = payload.Jetons
 	if type(jetons) == "number" and jetons > 0 then
+		SummaryScreen.setReward(jetons)
 		Toast.success(string.format("+%d Jetons", jetons))
 	end
 end)
 
--- Profil mis à jour par le serveur — actualise le panneau
+-- Profil mis à jour — actualise le panneau et notifie une montée de rang
 Net.onClient(RemoteNames.ProfileUpdated, function(payload)
 	local jetons = payload.Jetons
 	local rang = payload.Rang
 	local perspicacite = payload.Perspicacite
+	local rangPrec = payload.RangPrecedent
 	if type(jetons) == "number" and type(rang) == "string" and type(perspicacite) == "number" then
 		ProfilePanel.update(jetons, rang, perspicacite)
+		if type(rangPrec) == "string" then
+			Toast.success("Nouveau rang atteint : " .. rang .. " !")
+		end
 	end
 end)
 
-print("[Client] The Witness Box v1.6 — UI prête")
+print("[Client] The Witness Box v1.7 — UI prête")
