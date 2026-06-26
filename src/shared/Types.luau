@@ -14,7 +14,6 @@ export type MatchPhase =
 
 export type GameFormat = "Solo" | "Duel" | "Mini" | "Full"
 
--- Defense ajouté en 1.3 (Milestone 1.3)
 export type PlayerRole = "HonestWitness" | "Liar" | "Prosecutor" | "Defense" | "Juror"
 
 export type VerdictValue = "Guilty" | "Innocent"
@@ -33,6 +32,7 @@ export type MatchState = {
 	Format: GameFormat,
 	PlayerRoles: { [number]: PlayerRole },
 	Votes: { [number]: VerdictValue },
+	Declarations: { [number]: { [string]: number } }, -- [UserId] = { [FieldKey] = selectedIndex }
 	PhaseStartedAt: number,
 	PhaseTimer: thread?,
 }
@@ -42,7 +42,7 @@ export type PhaseChangedPayload = {
 	Phase: MatchPhase,
 	Duration: number,
 	MatchId: string,
-	Format: string, -- GameFormat transmis comme string dans le payload réseau
+	Format: string,
 	PlayerCount: number,
 }
 
@@ -52,6 +52,25 @@ export type RoleAssignedPayload = {
 	MatchId: string,
 	DisplayName: string,
 	ShortDescription: string,
+}
+
+-- Champ d'affaire côté client (sans TruthIndex — server-only)
+export type CaseFieldClient = {
+	Key: string,
+	Label: string,
+	Options: { string },
+}
+
+-- Payload envoyé individuellement à chaque joueur au début de Intro
+export type CaseIntroPayload = {
+	CaseId: string,
+	Title: string,
+	Summary: string,
+	Accusation: string,
+	Fields: { CaseFieldClient },
+	RoleObjective: string,
+	TruthGuide: { [string]: number }?, -- FieldKey → index (nil pour les observateurs)
+	LiarHint: string?, -- instruction textuelle pour le Menteur
 }
 
 return {}

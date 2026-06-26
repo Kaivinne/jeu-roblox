@@ -1,5 +1,5 @@
 --!strict
--- Point d'entrée client — Milestone 1.3.
+-- Point d'entrée client — Milestone 1.4.
 -- Initialise tous les modules UI et câble les événements réseau.
 -- Le client n'a aucune logique de jeu : il affiche et envoie des intentions.
 
@@ -10,6 +10,7 @@ local Types = require(Shared.Types)
 
 local HUD = require(script.ui.HUD)
 local Toast = require(script.ui.Toast)
+local IntroScreen = require(script.ui.IntroScreen)
 local ReactionBar = require(script.ui.ReactionBar)
 local DeclarationBuilder = require(script.ui.DeclarationBuilder)
 local VerdictScreen = require(script.ui.VerdictScreen)
@@ -19,17 +20,25 @@ local currentRole: string = ""
 
 -- Initialiser tous les modules UI (crée les ScreenGuis une seule fois)
 HUD.setup()
+IntroScreen.setup()
 ReactionBar.setup()
 DeclarationBuilder.setup()
 VerdictScreen.setup()
 -- Toast est lazy-initialized à la première notification
 
--- Détermine quel panneau montrer selon la phase et le rôle local
-local function applyPhaseUI(phase: string)
+-- Masque tous les panneaux contextuels
+local function hideAllPanels()
+	IntroScreen.hide()
 	ReactionBar.hide()
 	DeclarationBuilder.hide()
 	VerdictScreen.hide()
+end
 
+-- Détermine quel panneau montrer selon la phase et le rôle local
+local function applyPhaseUI(phase: string)
+	hideAllPanels()
+
+	-- Intro : IntroScreen est rempli et ouvert via CaseIntroReceived, pas ici
 	if phase == "Testimony" then
 		local isWitness = currentRole == "HonestWitness" or currentRole == "Liar"
 		local isObserver = currentRole == "Juror"
@@ -49,8 +58,6 @@ local function applyPhaseUI(phase: string)
 		Toast.info("En attente de joueurs...")
 	elseif phase == "Matchmaking" then
 		Toast.info("Préparation de la partie...")
-	elseif phase == "Intro" then
-		Toast.info("La partie commence !")
 	elseif phase == "PostVerdict" then
 		Toast.success("Partie terminée — résultats en cours...")
 	end
@@ -77,7 +84,6 @@ Net.onClient(RemoteNames.RoleAssigned, function(payload)
 		Defense = "Vous êtes l'Avocat de la Défense",
 		Juror = "Vous êtes Juré",
 	}
-	-- ShortDescription est affiché en toast (instruction de jeu)
 	local label = roleLabels[typed.Role] or typed.Role
 	Toast.info(label)
 	if typed.ShortDescription ~= "" then
@@ -87,7 +93,36 @@ Net.onClient(RemoteNames.RoleAssigned, function(payload)
 	end
 end)
 
--- Action refusée par le serveur (phase incorrecte ou rôle non autorisé)
+-- Données de l'affaire reçues individuellement au début de Intro
+Net.onClient(RemoteNames.CaseIntroReceived, function(payload)
+	local typed = payload :: Types.CaseIntroPayload
+
+	-- Charger les options dans DeclarationBuilder pour les témoins
+	local isWitness = currentRole == "HonestWitness" or currentRole == "Liar"
+	if isWitness then
+		local guide: { [string]: number }? = nil
+		if typed.TruthGuide then
+			guide = typed.TruthGuide :: { [string]: number }
+		end
+		local liarHint: string? = nil
+		if typed.LiarHint and typed.LiarHint ~= "" then
+			liarHint = typed.LiarHint
+		end
+		DeclarationBuilder.loadCase(typed.Fields, guide, liarHint)
+	end
+
+	-- Afficher l'écran d'introduction
+	IntroScreen.show(
+		typed.CaseId,
+		typed.Title,
+		typed.Summary,
+		typed.Accusation,
+		typed.RoleObjective,
+		currentRole
+	)
+end)
+
+-- Action refusée par le serveur
 Net.onClient(RemoteNames.ActionRejected, function(payload)
 	local message = payload.Message
 	if type(message) == "string" then
@@ -103,6 +138,24 @@ Net.onClient(RemoteNames.TimerSync, function(payload)
 	end
 end)
 
+-- Déclaration d'un autre joueur reçue (visible par tous)
+Net.onClient(RemoteNames.DeclarationBroadcast, function(payload)
+	local fromName = payload.FromName
+	local fieldValues = payload.FieldValues
+	if type(fromName) == "string" and type(fieldValues) == "table" then
+		local values = fieldValues :: { string }
+		Toast.info(fromName .. " : " .. table.concat(values, " · "))
+	end
+end)
+
+-- Contradiction détectée par le serveur — alerte visuelle subtile
+Net.onClient(RemoteNames.ContradictionDetected, function(payload)
+	local field = payload.Field
+	if type(field) == "string" then
+		Toast.error("Incohérence détectée…")
+	end
+end)
+
 -- Réaction d'un autre joueur (broadcast)
 Net.onClient(RemoteNames.ReactionBroadcast, function(payload)
 	local reactionType = payload.ReactionType
@@ -115,8 +168,46 @@ end)
 Net.onClient(RemoteNames.VerdictRevealed, function(payload)
 	local verdict = payload.Verdict
 	local guiltyCount = payload.GuiltyCount
-	if type(verdict) == "string" and type(guiltyCount) == "number" then
+	if type(verdict) ~= "string" or type(guiltyCount) ~= "number" then
+		return
+	end
+
+	-- Afficher le résultat du vote (pour tout le monde via le panneau ou un toast)
+	if currentRole == "Juror" then
 		VerdictScreen.showResult(verdict, guiltyCount)
+	else
+		local verdictText = verdict == "Guilty"
+				and string.format("VERDICT : COUPABLE (%d vote(s))", guiltyCount)
+			or string.format("VERDICT : INNOCENT (%d vote(s))", guiltyCount)
+		Toast.success(verdictText)
+	end
+
+	-- Révéler la vérité (pour tous)
+	local caseTitle = payload.CaseTitle
+	local truthSummary = payload.TruthSummary
+	local liarUserId = payload.LiarUserId
+	local liarLied = payload.LiarLied
+	local liarDeclaration = payload.LiarDeclaration
+
+	if type(caseTitle) == "string" and type(truthSummary) == "table" then
+		local liarId: number = if type(liarUserId) == "number" then liarUserId else 0
+		local didLie: boolean = if type(liarLied) == "boolean" then liarLied else false
+		local liarDecl: { string } = if type(liarDeclaration) == "table"
+			then liarDeclaration :: { string }
+			else {}
+
+		-- Afficher la révélation dans VerdictScreen (visible pour Jurés)
+		-- Les autres voient les infos en toast
+		if currentRole == "Juror" then
+			local truth = truthSummary :: { { Key: string, Value: string } }
+			VerdictScreen.showTruth(caseTitle, truth, liarId, didLie, liarDecl)
+		else
+			if didLie then
+				Toast.error("Le Menteur a bien menti !")
+			else
+				Toast.info("Le Menteur n'a pas menti — ou n'a pas déclaré.")
+			end
+		end
 	end
 end)
 
@@ -129,4 +220,4 @@ Net.onClient(RemoteNames.RewardGranted, function(payload)
 	end
 end)
 
-print("[Client] The Witness Box v1.3 — UI prête")
+print("[Client] The Witness Box v1.4 — UI prête")

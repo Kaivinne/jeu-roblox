@@ -1,7 +1,6 @@
 --!strict
--- Écran de vote final : Coupable ou Innocent.
--- Aucune validation côté client — le vote est envoyé au serveur,
--- qui ignore les votes invalides (mauvaise phase, double vote, etc.).
+-- Écran de vote (phase Verdict) et révélation de la vérité (phase PostVerdict).
+-- Deux états : vote actif et résultat + révélation.
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -15,10 +14,20 @@ local UIUtils = require(script.Parent.UIUtils)
 local VerdictScreen = {}
 
 local gui: ScreenGui? = nil
+
+-- Panneau de vote (Verdict)
+local votingPanel: Frame? = nil
 local guiltyBtn: TextButton? = nil
 local innocentBtn: TextButton? = nil
 local confirmLabel: TextLabel? = nil
 local hasVoted = false
+
+-- Panneau de résultat (PostVerdict)
+local resultPanel: Frame? = nil
+local verdictResultLabel: TextLabel? = nil
+local caseRevealTitle: TextLabel? = nil
+local truthContainer: Frame? = nil
+local liarStatusLabel: TextLabel? = nil
 
 local function fireServer(eventName: string, payload: { [string]: any })
 	Net.getEvent(eventName):FireServer(payload)
@@ -63,7 +72,7 @@ function VerdictScreen.setup()
 	screen.Parent = playerGui
 	gui = screen
 
-	-- Fond foncé plein écran
+	-- ── Fond commun ──────────────────────────────────────────────────────────
 	local bg = Instance.new("Frame")
 	bg.Size = UDim2.new(1, 0, 1, 0)
 	bg.BackgroundColor3 = Color3.fromRGB(6, 6, 14)
@@ -71,17 +80,18 @@ function VerdictScreen.setup()
 	bg.BorderSizePixel = 0
 	bg.Parent = screen
 
-	-- Panneau central
-	local panel = Instance.new("Frame")
-	panel.Size = UDim2.new(0, 480, 0, 260)
-	panel.Position = UDim2.new(0.5, -240, 0.5, -130)
-	panel.BackgroundColor3 = Color3.fromRGB(14, 14, 26)
-	panel.BorderSizePixel = 0
-	panel.Parent = screen
-	UIUtils.round(panel, 16)
-	UIUtils.stroke(panel, UIUtils.Color.Gold, 2)
+	-- ── Panneau de VOTE ───────────────────────────────────────────────────────
+	local vPanel = Instance.new("Frame")
+	vPanel.Name = "VotingPanel"
+	vPanel.Size = UDim2.new(0, 480, 0, 260)
+	vPanel.Position = UDim2.new(0.5, -240, 0.5, -130)
+	vPanel.BackgroundColor3 = Color3.fromRGB(14, 14, 26)
+	vPanel.BorderSizePixel = 0
+	vPanel.Parent = screen
+	UIUtils.round(vPanel, 16)
+	UIUtils.stroke(vPanel, UIUtils.Color.Gold, 2)
+	votingPanel = vPanel
 
-	-- Titre
 	local title = Instance.new("TextLabel")
 	title.Size = UDim2.new(1, -24, 0, 40)
 	title.Position = UDim2.new(0, 12, 0, 16)
@@ -91,7 +101,7 @@ function VerdictScreen.setup()
 	title.Font = UIUtils.Font.Title
 	title.TextSize = 22
 	title.TextXAlignment = Enum.TextXAlignment.Center
-	title.Parent = panel
+	title.Parent = vPanel
 
 	local subtitle = Instance.new("TextLabel")
 	subtitle.Size = UDim2.new(1, -24, 0, 24)
@@ -102,9 +112,8 @@ function VerdictScreen.setup()
 	subtitle.Font = UIUtils.Font.Body
 	subtitle.TextSize = 13
 	subtitle.TextXAlignment = Enum.TextXAlignment.Center
-	subtitle.Parent = panel
+	subtitle.Parent = vPanel
 
-	-- Bouton Coupable
 	local guilty = Instance.new("TextButton")
 	guilty.Size = UDim2.new(0.44, 0, 0, 64)
 	guilty.Position = UDim2.new(0.04, 0, 0, 96)
@@ -115,11 +124,10 @@ function VerdictScreen.setup()
 	guilty.Font = UIUtils.Font.Title
 	guilty.TextSize = 18
 	guilty.AutoButtonColor = false
-	guilty.Parent = panel
+	guilty.Parent = vPanel
 	UIUtils.round(guilty, 12)
 	guiltyBtn = guilty
 
-	-- Bouton Innocent
 	local innocent = Instance.new("TextButton")
 	innocent.Size = UDim2.new(0.44, 0, 0, 64)
 	innocent.Position = UDim2.new(0.52, 0, 0, 96)
@@ -130,11 +138,10 @@ function VerdictScreen.setup()
 	innocent.Font = UIUtils.Font.Title
 	innocent.TextSize = 18
 	innocent.AutoButtonColor = false
-	innocent.Parent = panel
+	innocent.Parent = vPanel
 	UIUtils.round(innocent, 12)
 	innocentBtn = innocent
 
-	-- Confirmation après vote
 	local confirm = Instance.new("TextLabel")
 	confirm.Size = UDim2.new(1, -24, 0, 36)
 	confirm.Position = UDim2.new(0, 12, 0, 176)
@@ -145,35 +152,119 @@ function VerdictScreen.setup()
 	confirm.TextSize = 16
 	confirm.TextXAlignment = Enum.TextXAlignment.Center
 	confirm.Visible = false
-	confirm.Parent = panel
+	confirm.Parent = vPanel
 	confirmLabel = confirm
 
 	guilty.MouseButton1Click:Connect(function()
 		onVote("Guilty")
 	end)
-
 	innocent.MouseButton1Click:Connect(function()
 		onVote("Innocent")
 	end)
+
+	-- ── Panneau de RÉSULTAT ───────────────────────────────────────────────────
+	local rPanel = Instance.new("Frame")
+	rPanel.Name = "ResultPanel"
+	rPanel.Size = UDim2.new(0, 520, 0, 390)
+	rPanel.Position = UDim2.new(0.5, -260, 0.5, -195)
+	rPanel.BackgroundColor3 = Color3.fromRGB(14, 14, 26)
+	rPanel.BorderSizePixel = 0
+	rPanel.Visible = false
+	rPanel.Parent = screen
+	UIUtils.round(rPanel, 16)
+	UIUtils.stroke(rPanel, UIUtils.Color.Gold, 2)
+	resultPanel = rPanel
+
+	local vResultLabel = Instance.new("TextLabel")
+	vResultLabel.Size = UDim2.new(1, -24, 0, 54)
+	vResultLabel.Position = UDim2.new(0, 12, 0, 14)
+	vResultLabel.BackgroundTransparency = 1
+	vResultLabel.Text = ""
+	vResultLabel.Font = UIUtils.Font.Title
+	vResultLabel.TextSize = 26
+	vResultLabel.TextXAlignment = Enum.TextXAlignment.Center
+	vResultLabel.Parent = rPanel
+	verdictResultLabel = vResultLabel
+
+	local sep = Instance.new("Frame")
+	sep.Size = UDim2.new(1, -24, 0, 1)
+	sep.Position = UDim2.new(0, 12, 0, 76)
+	sep.BackgroundColor3 = UIUtils.Color.Gold
+	sep.BackgroundTransparency = 0.5
+	sep.BorderSizePixel = 0
+	sep.Parent = rPanel
+
+	local caseTitleLabel = Instance.new("TextLabel")
+	caseTitleLabel.Size = UDim2.new(1, -24, 0, 28)
+	caseTitleLabel.Position = UDim2.new(0, 12, 0, 86)
+	caseTitleLabel.BackgroundTransparency = 1
+	caseTitleLabel.Text = "LA VÉRITÉ"
+	caseTitleLabel.TextColor3 = UIUtils.Color.Gold
+	caseTitleLabel.Font = UIUtils.Font.Title
+	caseTitleLabel.TextSize = 13
+	caseTitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	caseTitleLabel.Parent = rPanel
+	caseRevealTitle = caseTitleLabel
+
+	-- Conteneur des lignes de vérité
+	local tContainer = Instance.new("Frame")
+	tContainer.Name = "TruthContainer"
+	tContainer.Size = UDim2.new(1, -24, 0, 140)
+	tContainer.Position = UDim2.new(0, 12, 0, 118)
+	tContainer.BackgroundTransparency = 1
+	tContainer.Parent = rPanel
+	truthContainer = tContainer
+
+	local tLayout = Instance.new("UIListLayout")
+	tLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	tLayout.Padding = UDim.new(0, 4)
+	tLayout.Parent = tContainer
+
+	local sep2 = Instance.new("Frame")
+	sep2.Size = UDim2.new(1, -24, 0, 1)
+	sep2.Position = UDim2.new(0, 12, 0, 270)
+	sep2.BackgroundColor3 = UIUtils.Color.Charcoal
+	sep2.BorderSizePixel = 0
+	sep2.Parent = rPanel
+
+	local liarStatus = Instance.new("TextLabel")
+	liarStatus.Size = UDim2.new(1, -24, 0, 90)
+	liarStatus.Position = UDim2.new(0, 12, 0, 280)
+	liarStatus.BackgroundTransparency = 1
+	liarStatus.Text = ""
+	liarStatus.Font = UIUtils.Font.Body
+	liarStatus.TextSize = 14
+	liarStatus.TextXAlignment = Enum.TextXAlignment.Center
+	liarStatus.TextWrapped = true
+	liarStatus.Parent = rPanel
+	liarStatusLabel = liarStatus
 end
 
 function VerdictScreen.show()
-	if gui then
-		gui.Enabled = true
-		hasVoted = false
+	if not gui then
+		return
+	end
+	gui.Enabled = true
+	hasVoted = false
 
-		if guiltyBtn then
-			guiltyBtn.Active = true
-			guiltyBtn.BackgroundTransparency = 0
-		end
-		if innocentBtn then
-			innocentBtn.Active = true
-			innocentBtn.BackgroundTransparency = 0
-		end
-		if confirmLabel then
-			confirmLabel.Visible = false
-			confirmLabel.Text = ""
-		end
+	if votingPanel then
+		votingPanel.Visible = true
+	end
+	if resultPanel then
+		resultPanel.Visible = false
+	end
+
+	if guiltyBtn then
+		guiltyBtn.Active = true
+		guiltyBtn.BackgroundTransparency = 0
+	end
+	if innocentBtn then
+		innocentBtn.Active = true
+		innocentBtn.BackgroundTransparency = 0
+	end
+	if confirmLabel then
+		confirmLabel.Visible = false
+		confirmLabel.Text = ""
 	end
 end
 
@@ -183,27 +274,94 @@ function VerdictScreen.hide()
 	end
 end
 
--- Affiche le verdict révélé par le serveur (résultat collectif)
+-- Affiche le verdict collectif (votes) — appelé à PostVerdict
 function VerdictScreen.showResult(verdict: string, guiltyCount: number)
 	if not gui then
 		return
 	end
 	gui.Enabled = true
 
-	if guiltyBtn then
-		guiltyBtn.Active = false
+	if votingPanel then
+		votingPanel.Visible = false
 	end
-	if innocentBtn then
-		innocentBtn.Active = false
+	if resultPanel then
+		resultPanel.Visible = true
 	end
 
-	if confirmLabel then
-		local resultText = verdict == "Guilty"
-				and string.format("VERDICT : COUPABLE (%d vote(s))", guiltyCount)
-			or string.format("VERDICT : INNOCENT (%d vote(s))", guiltyCount)
-		confirmLabel.Text = resultText
-		confirmLabel.TextColor3 = verdict == "Guilty" and UIUtils.Color.Crimson or UIUtils.Color.Success
-		confirmLabel.Visible = true
+	if verdictResultLabel then
+		local isGuilty = verdict == "Guilty"
+		verdictResultLabel.Text = isGuilty and string.format("COUPABLE  (%d vote(s))", guiltyCount)
+			or string.format("INNOCENT  (%d vote(s))", guiltyCount)
+		verdictResultLabel.TextColor3 = isGuilty and UIUtils.Color.Crimson or UIUtils.Color.Success
+	end
+end
+
+-- Révèle la vérité de l'affaire et le comportement du Menteur
+-- truthSummary : { { Key: string, Value: string } }
+-- liarDeclaration : { string } — ce que le Menteur a déclaré
+function VerdictScreen.showTruth(
+	caseTitle: string,
+	truthSummary: { { Key: string, Value: string } },
+	liarUserId: number,
+	liarLied: boolean,
+	liarDeclaration: { string }
+)
+	if caseRevealTitle then
+		caseRevealTitle.Text = "LA VÉRITÉ — " .. caseTitle:upper()
+	end
+
+	-- Reconstruire les lignes de vérité
+	if truthContainer then
+		for _, child in ipairs(truthContainer:GetChildren()) do
+			if child:IsA("Frame") then
+				child:Destroy()
+			end
+		end
+		for _, entry in ipairs(truthSummary) do
+			local row = Instance.new("Frame")
+			row.Size = UDim2.new(1, 0, 0, 30)
+			row.BackgroundColor3 = Color3.fromRGB(20, 30, 20)
+			row.BackgroundTransparency = 0.4
+			row.BorderSizePixel = 0
+			row.Parent = truthContainer
+			UIUtils.round(row, 6)
+
+			local keyLbl = Instance.new("TextLabel")
+			keyLbl.Size = UDim2.new(0.45, 0, 1, 0)
+			keyLbl.Position = UDim2.new(0, 8, 0, 0)
+			keyLbl.BackgroundTransparency = 1
+			keyLbl.Text = entry.Key
+			keyLbl.TextColor3 = UIUtils.Color.Muted
+			keyLbl.Font = UIUtils.Font.Body
+			keyLbl.TextSize = 12
+			keyLbl.TextXAlignment = Enum.TextXAlignment.Left
+			keyLbl.Parent = row
+
+			local valLbl = Instance.new("TextLabel")
+			valLbl.Size = UDim2.new(0.55, -8, 1, 0)
+			valLbl.Position = UDim2.new(0.45, 0, 0, 0)
+			valLbl.BackgroundTransparency = 1
+			valLbl.Text = entry.Value
+			valLbl.TextColor3 = UIUtils.Color.Success
+			valLbl.Font = UIUtils.Font.Title
+			valLbl.TextSize = 13
+			valLbl.TextXAlignment = Enum.TextXAlignment.Left
+			valLbl.Parent = row
+		end
+	end
+
+	if liarStatusLabel then
+		if liarUserId == 0 then
+			liarStatusLabel.Text = "Aucun Menteur identifié dans cette partie."
+			liarStatusLabel.TextColor3 = UIUtils.Color.Muted
+		elseif liarLied then
+			local declText = #liarDeclaration > 0 and table.concat(liarDeclaration, " · ") or "—"
+			liarStatusLabel.Text = "Le Menteur a bien menti.\nIl a déclaré : " .. declText
+			liarStatusLabel.TextColor3 = UIUtils.Color.Crimson
+		else
+			liarStatusLabel.Text = "Le Menteur a dit la vérité — ou n'a pas déclaré."
+			liarStatusLabel.TextColor3 = UIUtils.Color.Gold
+		end
 	end
 end
 

@@ -15,6 +15,7 @@ local RemoteNames = require(Shared.RemoteNames)
 local Server = script.Parent.Parent
 local MatchStateMachine = require(Server.MatchStateMachine)
 local RoleService = require(Server.services.RoleService)
+local CaseService = require(Server.services.CaseService)
 
 local MatchService = {}
 
@@ -24,6 +25,7 @@ local state: Types.MatchState = {
 	Format = "Duel",
 	PlayerRoles = {},
 	Votes = {},
+	Declarations = {},
 	PhaseStartedAt = 0,
 	PhaseTimer = nil,
 }
@@ -44,6 +46,21 @@ local function selectFormat(count: number): Types.GameFormat
 	end
 end
 
+local ROLE_OBJECTIVES: { [string]: string } = {
+	HonestWitness = "Déclarez la vérité. Faites-vous croire par les jurés.",
+	Liar = "Mentez de manière convaincante. Ne vous faites pas démasquer.",
+	Prosecutor = "Questionnez. Repérez les incohérences. Guidez les jurés.",
+	Defense = "Défendez l'accusé. Semez le doute raisonnable.",
+	Juror = "Observez les déclarations. Votez en votre âme et conscience.",
+}
+
+local function getRoleObjective(role: Types.PlayerRole?): string
+	if role == nil then
+		return ""
+	end
+	return ROLE_OBJECTIVES[role] or ""
+end
+
 -- Synchro du timer côté client toutes les N secondes pendant les phases actives
 local function startTimerSync(capturedPhase: Types.MatchPhase, duration: number)
 	task.spawn(function()
@@ -61,7 +78,7 @@ local function startTimerSync(capturedPhase: Types.MatchPhase, duration: number)
 	end)
 end
 
--- Calcule le verdict à partir des votes Juré et le diffuse à tous
+-- Calcule le verdict et le diffuse avec la révélation de la vérité
 local function computeAndBroadcastVerdict()
 	local guiltyCount = 0
 	local innocentCount = 0
@@ -74,18 +91,46 @@ local function computeAndBroadcastVerdict()
 			end
 		end
 	end
-	-- Tie = Innocent (doute raisonnable, cf. GDD)
 	local verdict: Types.VerdictValue = if guiltyCount > innocentCount then "Guilty" else "Innocent"
+
+	-- Révélation de la vérité et du comportement du Menteur
+	local case = CaseService.getCase()
+	local truthText = CaseService.getTruthText(case)
+
+	local liarUserId: number = 0
+	local liarLied = false
+	local liarFieldValues: { string } = {}
+
+	for userId, role in pairs(state.PlayerRoles) do
+		if role == "Liar" then
+			liarUserId = userId
+			local decl = state.Declarations[userId]
+			if decl then
+				local contradictions = CaseService.findContradictions(case, decl)
+				liarLied = #contradictions > 0
+				liarFieldValues = CaseService.getDeclarationText(case, decl)
+			end
+			break
+		end
+	end
+
 	Net.broadcast(RemoteNames.VerdictRevealed, {
 		Verdict = verdict,
 		GuiltyCount = guiltyCount,
+		CaseTitle = case.Title,
+		TruthSummary = truthText, -- { { Key, Value } }
+		LiarUserId = liarUserId,
+		LiarLied = liarLied,
+		LiarDeclaration = liarFieldValues, -- ce que le Menteur a déclaré
 	})
+
 	print(
 		string.format(
-			"[MatchService] Verdict: %s (%d coupable / %d innocent)",
+			"[MatchService] Verdict: %s (%d coupable / %d innocent) — Menteur a menti: %s",
 			verdict,
 			guiltyCount,
-			innocentCount
+			innocentCount,
+			tostring(liarLied)
 		)
 	)
 end
@@ -117,9 +162,11 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 		state.MatchId = newMatchId()
 		state.Format = selectFormat(#Players:GetPlayers())
 		state.Votes = {}
+		state.Declarations = {}
 	elseif newPhase == "Lobby" then
 		state.PlayerRoles = {}
 		state.Votes = {}
+		state.Declarations = {}
 		state.MatchId = ""
 	end
 
@@ -154,6 +201,34 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 		state.PlayerRoles = RoleService.assignForMatch(players, state.Format)
 		print(string.format("[MatchService] Match %s | %d joueur(s)", state.MatchId, #players))
 		RoleService.broadcastRoles(players, state.PlayerRoles, state.MatchId)
+	elseif newPhase == "Intro" then
+		-- Envoyer les données de l'affaire à chaque joueur selon son rôle
+		local case = CaseService.getCase()
+		local clientFields = CaseService.getClientFields(case)
+		local truthGuide = CaseService.getTruthGuide(case)
+		local players = Players:GetPlayers()
+		print("[MatchService] Affaire :", case.Title)
+		for _, player in ipairs(players) do
+			local role = state.PlayerRoles[player.UserId]
+			local guide: { [string]: number }? = nil
+			local liarHint: string? = nil
+			if role == "HonestWitness" then
+				guide = truthGuide -- voit les bonnes réponses
+			elseif role == "Liar" then
+				guide = truthGuide -- voit ce qu'il doit éviter
+				liarHint = case.LiarHint
+			end
+			Net.fire(player, RemoteNames.CaseIntroReceived, {
+				CaseId = case.Id,
+				Title = case.Title,
+				Summary = case.Summary,
+				Accusation = case.Accusation,
+				Fields = clientFields,
+				RoleObjective = getRoleObjective(role),
+				TruthGuide = guide,
+				LiarHint = liarHint,
+			})
+		end
 	elseif newPhase == "Testimony" or newPhase == "Deliberation" or newPhase == "Verdict" then
 		startTimerSync(newPhase, duration)
 	elseif newPhase == "PostVerdict" then
@@ -186,7 +261,6 @@ function MatchService.getPublicState(): {
 	return { Phase = state.Phase, Format = state.Format, MatchId = state.MatchId }
 end
 
--- Notifie le client qu'une action a été refusée et log le motif
 local function rejectAction(player: Player, reason: string)
 	Net.fire(player, RemoteNames.ActionRejected, { Message = reason })
 	warn(string.format("[MatchService] Action refusée [%s] : %s", player.DisplayName, reason))
@@ -208,15 +282,53 @@ function MatchService.init()
 			rejectAction(player, "Seuls les témoins soumettent des déclarations")
 			return
 		end
+		if state.Declarations[player.UserId] then
+			rejectAction(player, "Vous avez déjà déclaré")
+			return
+		end
+		local fields = payload.Fields
+		if type(fields) ~= "table" then
+			rejectAction(player, "Déclaration invalide")
+			return
+		end
+		local fieldSelections = fields :: { [string]: number }
+
+		-- Stocker la déclaration
+		state.Declarations[player.UserId] = fieldSelections
+
+		local case = CaseService.getCase()
+		local fieldValues = CaseService.getDeclarationText(case, fieldSelections)
+
 		print(
 			string.format(
-				"[MatchService] Déclaration reçue de %s (%s) — champs: %s",
+				"[MatchService] Déclaration de %s (%s) : %s",
 				player.DisplayName,
 				tostring(role),
-				tostring(payload.Fields)
+				table.concat(fieldValues, " · ")
 			)
 		)
-		-- Stockage et analyse des contradictions en Milestone 1.5
+
+		-- Diffuser la déclaration aux observateurs (pas d'info sur le rôle)
+		Net.broadcast(RemoteNames.DeclarationBroadcast, {
+			FromName = player.DisplayName,
+			FieldValues = fieldValues,
+		})
+
+		-- Vérifier les contradictions avec la vérité officielle
+		local contradictions = CaseService.findContradictions(case, fieldSelections)
+		if #contradictions > 0 then
+			print(
+				string.format(
+					"[MatchService] Contradiction chez %s : champ(s) %s",
+					player.DisplayName,
+					table.concat(contradictions, ", ")
+				)
+			)
+			-- Broadcast visuel subtil (ne révèle pas qui a menti)
+			Net.broadcast(RemoteNames.ContradictionDetected, {
+				Field = contradictions[1],
+			})
+		end
 	end)
 
 	-- Réaction : acceptée uniquement en Testimony pour les observateurs
@@ -239,7 +351,6 @@ function MatchService.init()
 				reactionType
 			)
 		)
-		-- Broadcast à tous (affichage seulement — pas d'effet gameplay en 1.3)
 		Net.broadcast(RemoteNames.ReactionBroadcast, {
 			FromUserId = player.UserId,
 			ReactionType = reactionType,
