@@ -16,6 +16,7 @@ local DeclarationBuilder = require(script.ui.DeclarationBuilder)
 local VerdictScreen = require(script.ui.VerdictScreen)
 local SummaryScreen = require(script.ui.SummaryScreen)
 local ProfilePanel = require(script.ui.ProfilePanel)
+local CameraController = require(script.CameraController)
 
 -- Rôle local du joueur (assigné par le serveur pendant Matchmaking)
 local currentRole: string = ""
@@ -28,6 +29,7 @@ DeclarationBuilder.setup()
 VerdictScreen.setup()
 SummaryScreen.setup()
 ProfilePanel.setup()
+CameraController.setup()
 -- Toast est lazy-initialized à la première notification
 
 -- Masque tous les panneaux contextuels
@@ -76,6 +78,7 @@ Net.onClient(RemoteNames.GamePhaseChanged, function(payload)
 	HUD.setPhase(typed.Phase, typed.Duration)
 	HUD.setInfo(typed.Format, typed.PlayerCount)
 	applyPhaseUI(typed.Phase)
+	CameraController.onPhaseChanged(typed.Phase)
 end)
 
 -- Attribution du rôle (FireClient individuel — les autres ne voient pas ce message)

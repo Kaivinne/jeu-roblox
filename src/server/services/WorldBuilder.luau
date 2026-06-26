@@ -273,12 +273,17 @@ function WorldBuilder.buildCourthouse()
 
 	SPAWNS.Lobby = CFrame.lookAt(Vector3.new(0, 3, 17), judgeDir)
 
-	-- 4 sièges jury répartis sur les bancs 1 et 2 (2 × 2), banc 3 en réserve
+	-- 8 sièges jury : 3 sur banc3 (avant) + 3 sur banc2 (milieu) + 2 sur banc1 (fond)
+	-- Y=5 : root du personnage au-dessus de la plateforme (dessus Y=1) + banc (dessus Y=3)
 	SPAWNS.JurorSeats = {
-		CFrame.lookAt(Vector3.new(19, 4, -22), courtCenter), -- banc 1, avant-gauche
-		CFrame.lookAt(Vector3.new(23, 4, -22), courtCenter), -- banc 1, avant-droit
-		CFrame.lookAt(Vector3.new(19, 4, -16), courtCenter), -- banc 2, avant-gauche
-		CFrame.lookAt(Vector3.new(23, 4, -16), courtCenter), -- banc 2, avant-droit
+		CFrame.lookAt(Vector3.new(18, 5, -9), courtCenter), -- banc3 gauche   (JurorSeat1)
+		CFrame.lookAt(Vector3.new(21, 5, -9), courtCenter), -- banc3 centre   (JurorSeat2)
+		CFrame.lookAt(Vector3.new(24, 5, -9), courtCenter), -- banc3 droit    (JurorSeat3)
+		CFrame.lookAt(Vector3.new(18, 5, -16), courtCenter), -- banc2 gauche  (JurorSeat4)
+		CFrame.lookAt(Vector3.new(21, 5, -16), courtCenter), -- banc2 centre  (JurorSeat5)
+		CFrame.lookAt(Vector3.new(24, 5, -16), courtCenter), -- banc2 droit   (JurorSeat6)
+		CFrame.lookAt(Vector3.new(19, 5, -22), courtCenter), -- banc1 gauche  (JurorSeat7)
+		CFrame.lookAt(Vector3.new(23, 5, -22), courtCenter), -- banc1 droit   (JurorSeat8)
 	}
 	SPAWNS.WitnessStand = CFrame.lookAt(Vector3.new(-16, 3, -20), Vector3.new(-4, 3, -13))
 	SPAWNS.AccusedStand = CFrame.lookAt(Vector3.new(-15, 3, -23), Vector3.new(-4, 3, -13))
