@@ -13,6 +13,7 @@ RemoteNames.ContradictionDetected = "ContradictionDetected" -- payload: { Field:
 RemoteNames.DeclarationBroadcast = "DeclarationBroadcast" -- payload: { FromName: string, FieldValues: {string} }
 RemoteNames.VerdictRevealed = "VerdictRevealed" -- payload: voir MatchService.computeAndBroadcastVerdict
 RemoteNames.RewardGranted = "RewardGranted" -- payload: { XP: number, Jetons: number }
+RemoteNames.ProfileUpdated = "ProfileUpdated" -- payload: ProfileUpdatedPayload (FireClient individuel)
 RemoteNames.ReactionBroadcast = "ReactionBroadcast" -- payload: { FromUserId: number, ReactionType: string }
 RemoteNames.ActionRejected = "ActionRejected" -- payload: { Message: string }
 
@@ -35,6 +36,7 @@ RemoteNames._EventNames = {
 	RemoteNames.DeclarationBroadcast,
 	RemoteNames.VerdictRevealed,
 	RemoteNames.RewardGranted,
+	RemoteNames.ProfileUpdated,
 	RemoteNames.ReactionBroadcast,
 	RemoteNames.ActionRejected,
 	RemoteNames.DeclarationSubmitted,

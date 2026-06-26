@@ -62,6 +62,27 @@ export type CaseFieldClient = {
 	Options: { string },
 }
 
+-- Profil de progression en mémoire (pas encore de DataStore)
+export type ProfileData = {
+	Jetons: number,
+	PartiesJouees: number,
+	VerdictsCorrects: number,
+	VerdictsIncorrects: number,
+	Credibilite: number,
+	Perspicacite: number,
+	RangActuel: string,
+}
+
+-- Payload envoyé au client à chaque mise à jour du profil
+export type ProfileUpdatedPayload = {
+	Jetons: number,
+	Rang: string,
+	Perspicacite: number,
+	PartiesJouees: number,
+	VerdictsCorrects: number,
+	VerdictsIncorrects: number,
+}
+
 -- Payload envoyé individuellement à chaque joueur au début de Intro
 export type CaseIntroPayload = {
 	CaseId: string,

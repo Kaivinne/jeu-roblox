@@ -17,6 +17,7 @@ local MatchStateMachine = require(Server.MatchStateMachine)
 local RoleService = require(Server.services.RoleService)
 local CaseService = require(Server.services.CaseService)
 local NPCService = require(Server.services.NPCService)
+local RewardService = require(Server.services.RewardService)
 
 local MatchService = {}
 
@@ -149,6 +150,16 @@ local function computeAndBroadcastVerdict()
 			tostring(liarLied)
 		)
 	)
+
+	-- Calculer quels Jurés ont voté correctement pour les récompenses
+	local correctJurors: { [number]: boolean } = {}
+	for userId, vote in pairs(state.Votes) do
+		if state.PlayerRoles[userId] == "Juror" then
+			local votedGuilty = vote == "Guilty"
+			correctJurors[userId] = (votedGuilty and liarLied) or (not votedGuilty and not liarLied)
+		end
+	end
+	RewardService.grantPostVerdict(Players:GetPlayers(), state.PlayerRoles, correctJurors)
 end
 
 local function scheduleNextPhase(phase: Types.MatchPhase, duration: number)
@@ -446,8 +457,12 @@ function MatchService.init()
 		rejectAction(player, "Les objections arrivent en Phase 2")
 	end)
 
-	-- Auto-démarrage quand le seuil Duel est atteint
-	Players.PlayerAdded:Connect(function(_player)
+	-- Auto-démarrage quand le seuil Duel est atteint + push profil initial
+	Players.PlayerAdded:Connect(function(player)
+		-- Petit délai pour que PlayerDataService crée le profil d'abord
+		task.delay(0.5, function()
+			RewardService.pushProfile(player)
+		end)
 		if state.Phase == "Lobby" and #Players:GetPlayers() >= Config.Format.Duel.Min then
 			task.delay(Config.PhaseDuration.Lobby, function()
 				if state.Phase == "Lobby" then

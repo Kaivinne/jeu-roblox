@@ -14,6 +14,7 @@ local IntroScreen = require(script.ui.IntroScreen)
 local ReactionBar = require(script.ui.ReactionBar)
 local DeclarationBuilder = require(script.ui.DeclarationBuilder)
 local VerdictScreen = require(script.ui.VerdictScreen)
+local ProfilePanel = require(script.ui.ProfilePanel)
 
 -- Rôle local du joueur (assigné par le serveur pendant Matchmaking)
 local currentRole: string = ""
@@ -24,6 +25,7 @@ IntroScreen.setup()
 ReactionBar.setup()
 DeclarationBuilder.setup()
 VerdictScreen.setup()
+ProfilePanel.setup()
 -- Toast est lazy-initialized à la première notification
 
 -- Masque tous les panneaux contextuels
@@ -231,13 +233,22 @@ Net.onClient(RemoteNames.VerdictRevealed, function(payload)
 	end
 end)
 
--- Récompenses attribuées
+-- Récompenses attribuées — toast récapitulatif
 Net.onClient(RemoteNames.RewardGranted, function(payload)
-	local xp = payload.XP
 	local jetons = payload.Jetons
-	if type(xp) == "number" and type(jetons) == "number" then
-		Toast.success(string.format("+%d XP  +%d Jetons", xp, jetons))
+	if type(jetons) == "number" and jetons > 0 then
+		Toast.success(string.format("+%d Jetons", jetons))
 	end
 end)
 
-print("[Client] The Witness Box v1.5 — UI prête")
+-- Profil mis à jour par le serveur — actualise le panneau
+Net.onClient(RemoteNames.ProfileUpdated, function(payload)
+	local jetons = payload.Jetons
+	local rang = payload.Rang
+	local perspicacite = payload.Perspicacite
+	if type(jetons) == "number" and type(rang) == "string" and type(perspicacite) == "number" then
+		ProfilePanel.update(jetons, rang, perspicacite)
+	end
+end)
+
+print("[Client] The Witness Box v1.6 — UI prête")
