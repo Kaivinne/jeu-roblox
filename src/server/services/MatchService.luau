@@ -303,13 +303,19 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 			playerCount = #players,
 		})
 	elseif newPhase == "Intro" then
-		-- Téléporter chaque joueur à sa position de rôle
+		-- Téléporter chaque joueur à son siège de rôle (jurorIndex pour les Jurés)
+		local jurorCount = 0
 		for _, player in ipairs(Players:GetPlayers()) do
 			local role = state.PlayerRoles[player.UserId]
 			if role then
 				local char = player.Character
 				if char and char:FindFirstChild("HumanoidRootPart") then
-					char:PivotTo(WorldBuilder.getRoleSpawnCFrame(tostring(role)))
+					local idx: number? = nil
+					if role == "Juror" then
+						jurorCount += 1
+						idx = jurorCount
+					end
+					char:PivotTo(WorldBuilder.getRoleSpawnCFrame(tostring(role), idx))
 				end
 			end
 		end
