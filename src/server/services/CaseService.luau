@@ -1,8 +1,7 @@
 --!strict
 -- Catalogue des affaires jouables.
--- Milestone 2.0 : 3 affaires, sélection aléatoire au début du match.
--- Les fonctions prennent toujours le CaseData en paramètre pour rester pures.
--- selectForMatch() choisit et mémorise l'affaire pour la durée d'un match.
+-- Milestone 2.0 : 3 affaires, sélection aléatoire.
+-- Milestone 2.1 : Difficulty, Theme, Twist + anti-répétition (lastCaseId).
 
 local CaseService = {}
 
@@ -22,6 +21,9 @@ type CaseData = {
 	Accusation: string,
 	Fields: { CaseField },
 	LiarHint: string,
+	Difficulty: string, -- "Easy" | "Medium" | "Hard"
+	Theme: string, -- ex: "Famille", "Cinéma", "Bureau"
+	Twist: string, -- Phrase courte révélée en PostVerdict
 }
 
 -- ─── Catalogue ────────────────────────────────────────────────────────────────
@@ -56,6 +58,9 @@ local CASE_LIBRARY: { CaseData } = {
 			},
 		},
 		LiarHint = "Vrai alibi : Jardin · Seul(e) · 14h00\nMentez sur au moins un champ.",
+		Difficulty = "Medium",
+		Theme = "Famille",
+		Twist = "Le collier a été retrouvé dans la doublure du manteau de l'accusé.",
 	},
 
 	-- ── Affaire 2 : Le Ticket Déchiré ────────────────────────────────────────
@@ -87,6 +92,9 @@ local CASE_LIBRARY: { CaseData } = {
 			},
 		},
 		LiarHint = "Vrai alibi : La Sentence · 19h30 · Milieu centre\nMentez sur au moins un champ.",
+		Difficulty = "Easy",
+		Theme = "Cinéma",
+		Twist = "La caissière du soir se souvient d'avoir vendu deux tickets ce soir-là — pas un seul.",
 	},
 
 	-- ── Affaire 3 : La Clé Introuvable ───────────────────────────────────────
@@ -118,26 +126,44 @@ local CASE_LIBRARY: { CaseData } = {
 			},
 		},
 		LiarHint = "Vrai alibi : Directeur · Bureau 204 · 11h30\nMentez sur au moins un champ.",
+		Difficulty = "Hard",
+		Theme = "Bureau",
+		Twist = "Les journaux de la serrure électronique indiquaient une heure d'accès différente de celle déclarée.",
 	},
 }
 
 -- ─── État courant ──────────────────────────────────────────────────────────────
--- Affaire active pour le match en cours. Mise à jour par selectForMatch().
+
 local selectedCase: CaseData = CASE_LIBRARY[1]
+local lastCaseId: string = "" -- Anti-répétition : id du dernier match
 
 -- ─── API publique ─────────────────────────────────────────────────────────────
 
 -- Sélectionne une affaire aléatoire pour le prochain match.
--- Appelé par MatchService au début de Matchmaking.
--- Retourne l'Id pour logging / analytics.
+-- Évite de répéter la même affaire deux fois de suite si le catalogue le permet.
 function CaseService.selectForMatch(): string
-	local idx = math.random(1, #CASE_LIBRARY)
-	selectedCase = CASE_LIBRARY[idx]
+	local pool: { CaseData } = {}
+	if #CASE_LIBRARY > 1 then
+		for _, c in ipairs(CASE_LIBRARY) do
+			if c.Id ~= lastCaseId then
+				table.insert(pool, c)
+			end
+		end
+	else
+		pool = CASE_LIBRARY
+	end
+
+	local idx = math.random(1, #pool)
+	selectedCase = pool[idx]
+	lastCaseId = selectedCase.Id
+
 	print(
 		string.format(
-			"[CaseService] Affaire sélectionnée : %s (%s)",
+			"[CaseService] Affaire sélectionnée : %s (%s | %s | %s)",
 			selectedCase.Title,
-			selectedCase.Id
+			selectedCase.Id,
+			selectedCase.Difficulty,
+			selectedCase.Theme
 		)
 	)
 	return selectedCase.Id
@@ -148,7 +174,7 @@ function CaseService.getCase(): CaseData
 	return selectedCase
 end
 
--- Champs sans TruthIndex pour les clients (server-only est filtré ici)
+-- Champs sans TruthIndex pour les clients (server-only filtré ici)
 function CaseService.getClientFields(
 	caseData: CaseData
 ): { { Key: string, Label: string, Options: { string } } }
@@ -192,7 +218,7 @@ function CaseService.getTruthText(caseData: CaseData): { { Key: string, Value: s
 	return result
 end
 
--- Valeurs lisibles d'une déclaration ({ valeur par champ, dans l'ordre }
+-- Valeurs lisibles d'une déclaration ({ valeur par champ, dans l'ordre })
 function CaseService.getDeclarationText(
 	caseData: CaseData,
 	fieldSelections: { [string]: number }

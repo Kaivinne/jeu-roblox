@@ -16,6 +16,7 @@ local summaryLabel: TextLabel? = nil
 local accusationLabel: TextLabel? = nil
 local objectiveLabel: TextLabel? = nil
 local caseIdLabel: TextLabel? = nil
+local difficultyLabel: TextLabel? = nil
 
 local ROLE_COLORS: { [string]: Color3 } = {
 	HonestWitness = Color3.fromRGB(34, 139, 34),
@@ -66,7 +67,7 @@ function IntroScreen.setup()
 	UIUtils.round(badge, 6)
 
 	local badgeText = Instance.new("TextLabel")
-	badgeText.Size = UDim2.new(1, -16, 1, 0)
+	badgeText.Size = UDim2.new(0.72, -8, 1, 0)
 	badgeText.Position = UDim2.new(0, 8, 0, 0)
 	badgeText.BackgroundTransparency = 1
 	badgeText.TextColor3 = UIUtils.Color.Gold
@@ -75,6 +76,17 @@ function IntroScreen.setup()
 	badgeText.TextXAlignment = Enum.TextXAlignment.Left
 	badgeText.Parent = badge
 	caseIdLabel = badgeText
+
+	local diffLbl = Instance.new("TextLabel")
+	diffLbl.Size = UDim2.new(0.27, 0, 1, 0)
+	diffLbl.Position = UDim2.new(0.72, 0, 0, 0)
+	diffLbl.BackgroundTransparency = 1
+	diffLbl.Text = ""
+	diffLbl.Font = UIUtils.Font.Title
+	diffLbl.TextSize = 12
+	diffLbl.TextXAlignment = Enum.TextXAlignment.Right
+	diffLbl.Parent = badge
+	difficultyLabel = diffLbl
 
 	-- Séparateur doré
 	local sep = Instance.new("Frame")
@@ -170,20 +182,32 @@ function IntroScreen.setup()
 	objectiveLabel = objLabel
 end
 
+local DIFFICULTY_COLORS: { [string]: Color3 } = {
+	Easy = Color3.fromRGB(60, 180, 90),
+	Medium = Color3.fromRGB(210, 170, 40),
+	Hard = UIUtils.Color.Crimson,
+}
+
 function IntroScreen.show(
 	caseId: string,
 	title: string,
 	summary: string,
 	accusation: string,
 	roleObjective: string,
-	role: string
+	role: string,
+	difficulty: string,
+	theme: string
 )
 	if not gui then
 		return
 	end
 
 	if caseIdLabel then
-		caseIdLabel.Text = "DOSSIER  " .. caseId:upper()
+		caseIdLabel.Text = "DOSSIER  " .. caseId:upper() .. "  ·  " .. theme:upper()
+	end
+	if difficultyLabel then
+		difficultyLabel.Text = difficulty:upper()
+		difficultyLabel.TextColor3 = DIFFICULTY_COLORS[difficulty] or UIUtils.Color.Muted
 	end
 	if titleLabel then
 		titleLabel.Text = title:upper()

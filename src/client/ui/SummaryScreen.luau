@@ -18,6 +18,7 @@ local witnessStatusLabel: TextLabel? = nil
 local playerVerdictLabel: TextLabel? = nil
 local correctLabel: TextLabel? = nil
 local rewardLabel: TextLabel? = nil
+local twistLabel: TextLabel? = nil
 
 function SummaryScreen.setup()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
@@ -41,8 +42,8 @@ function SummaryScreen.setup()
 
 	-- Panneau principal
 	local panel = Instance.new("Frame")
-	panel.Size = UDim2.new(0, 620, 0, 462)
-	panel.Position = UDim2.new(0.5, -310, 0.5, -231)
+	panel.Size = UDim2.new(0, 620, 0, 500)
+	panel.Position = UDim2.new(0.5, -310, 0.5, -250)
 	panel.BackgroundColor3 = Color3.fromRGB(12, 12, 24)
 	panel.BorderSizePixel = 0
 	panel.Parent = screen
@@ -202,10 +203,25 @@ function SummaryScreen.setup()
 	sep4.BorderSizePixel = 0
 	sep4.Parent = panel
 
+	-- Twist narratif (révélé en PostVerdict)
+	local twistLbl = Instance.new("TextLabel")
+	twistLbl.Size = UDim2.new(1, -32, 0, 36)
+	twistLbl.Position = UDim2.new(0, 16, 0, 350)
+	twistLbl.BackgroundTransparency = 1
+	twistLbl.Text = ""
+	twistLbl.TextColor3 = UIUtils.Color.Muted
+	twistLbl.Font = UIUtils.Font.Body
+	twistLbl.TextSize = 12
+	twistLbl.TextXAlignment = Enum.TextXAlignment.Center
+	twistLbl.TextWrapped = true
+	twistLbl.Visible = false
+	twistLbl.Parent = panel
+	twistLabel = twistLbl
+
 	-- Bouton Rejouer
 	local replayBtn = Instance.new("TextButton")
 	replayBtn.Size = UDim2.new(0.55, 0, 0, 54)
-	replayBtn.Position = UDim2.new(0.225, 0, 0, 358)
+	replayBtn.Position = UDim2.new(0.225, 0, 0, 396)
 	replayBtn.BackgroundColor3 = UIUtils.Color.Navy
 	replayBtn.BorderSizePixel = 0
 	replayBtn.Text = "REJOUER"
@@ -234,7 +250,8 @@ function SummaryScreen.show(
 	playerVote: string,
 	isCorrect: boolean?,
 	role: string,
-	guiltyCount: number
+	guiltyCount: number,
+	twist: string
 )
 	if not gui then
 		return
@@ -343,6 +360,17 @@ function SummaryScreen.show(
 			correctLabel.TextColor3 = UIUtils.Color.Crimson
 		else
 			correctLabel.Text = ""
+		end
+	end
+
+	-- Twist narratif
+	if twistLabel then
+		if twist ~= "" then
+			twistLabel.Text = "« " .. twist .. " »"
+			twistLabel.Visible = true
+		else
+			twistLabel.Text = ""
+			twistLabel.Visible = false
 		end
 	end
 

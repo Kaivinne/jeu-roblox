@@ -141,6 +141,7 @@ local function computeAndBroadcastVerdict()
 		LiarLied = liarLied,
 		LiarDeclaration = liarFieldValues,
 		NpcName = NPCService.NPC_NAME,
+		Twist = case.Twist,
 	})
 
 	print(
@@ -166,6 +167,8 @@ local function computeAndBroadcastVerdict()
 	AnalyticsService.track(nil, "VerdictRevealed", {
 		matchId = state.MatchId,
 		caseId = state.CaseId,
+		difficulty = case.Difficulty,
+		theme = case.Theme,
 		format = state.Format,
 		verdict = tostring(verdict),
 		guiltyCount = guiltyCount,
@@ -175,6 +178,8 @@ local function computeAndBroadcastVerdict()
 	AnalyticsService.track(nil, "MatchCompleted", {
 		matchId = state.MatchId,
 		caseId = state.CaseId,
+		difficulty = case.Difficulty,
+		theme = case.Theme,
 		format = state.Format,
 	})
 end
@@ -279,10 +284,13 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 		end
 		print(string.format("[MatchService] Match %s | %d joueur(s)", state.MatchId, #players))
 		RoleService.broadcastRoles(players, state.PlayerRoles, state.MatchId)
+		local activeCase = CaseService.getCase()
 		AnalyticsService.track(nil, "MatchStarted", {
 			matchId = state.MatchId,
 			format = state.Format,
 			caseId = state.CaseId,
+			difficulty = activeCase.Difficulty,
+			theme = activeCase.Theme,
 			playerCount = #players,
 		})
 	elseif newPhase == "Intro" then
@@ -311,10 +319,14 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 				RoleObjective = getRoleObjective(role),
 				TruthGuide = guide,
 				LiarHint = liarHint,
+				Difficulty = case.Difficulty,
+				Theme = case.Theme,
 			})
 			AnalyticsService.track(player, "CaseIntroShown", {
 				matchId = state.MatchId,
 				caseId = case.Id,
+				difficulty = case.Difficulty,
+				theme = case.Theme,
 				role = tostring(role),
 			})
 		end
@@ -350,6 +362,8 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 					AnalyticsService.track(nil, "ContradictionDetected", {
 						matchId = state.MatchId,
 						caseId = state.CaseId,
+						difficulty = currentCase.Difficulty,
+						theme = currentCase.Theme,
 						field = contradictions[1],
 						isNpc = true,
 					})
@@ -440,6 +454,8 @@ function MatchService.init()
 		AnalyticsService.track(player, "DeclarationSubmitted", {
 			matchId = state.MatchId,
 			caseId = state.CaseId,
+			difficulty = case.Difficulty,
+			theme = case.Theme,
 			role = tostring(role),
 		})
 
@@ -460,6 +476,8 @@ function MatchService.init()
 			AnalyticsService.track(player, "ContradictionDetected", {
 				matchId = state.MatchId,
 				caseId = state.CaseId,
+				difficulty = case.Difficulty,
+				theme = case.Theme,
 				field = contradictions[1],
 			})
 			Net.broadcast(RemoteNames.ContradictionDetected, {

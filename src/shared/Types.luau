@@ -95,6 +95,8 @@ export type CaseIntroPayload = {
 	RoleObjective: string,
 	TruthGuide: { [string]: number }?, -- FieldKey → index (nil pour les observateurs)
 	LiarHint: string?, -- instruction textuelle pour le Menteur
+	Difficulty: string, -- "Easy" | "Medium" | "Hard"
+	Theme: string, -- ex: "Famille", "Cinéma", "Bureau"
 }
 
 return {}

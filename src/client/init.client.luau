@@ -117,13 +117,17 @@ Net.onClient(RemoteNames.CaseIntroReceived, function(payload)
 		DeclarationBuilder.loadCase(typed.Fields, guide, liarHint)
 	end
 
+	local difficulty = if type(typed.Difficulty) == "string" then typed.Difficulty else "Medium"
+	local theme = if type(typed.Theme) == "string" then typed.Theme else ""
 	IntroScreen.show(
 		typed.CaseId,
 		typed.Title,
 		typed.Summary,
 		typed.Accusation,
 		typed.RoleObjective,
-		currentRole
+		currentRole,
+		difficulty,
+		theme
 	)
 end)
 
@@ -197,6 +201,7 @@ Net.onClient(RemoteNames.VerdictRevealed, function(payload)
 		then liarDeclaration :: { string }
 		else {}
 	local truth = truthSummary :: { { Key: string, Value: string } }
+	local twist: string = if type(payload.Twist) == "string" then payload.Twist :: string else ""
 
 	-- Calculer correct/incorrect pour le Juré
 	local playerVote = VerdictScreen.getLastVote()
@@ -214,7 +219,8 @@ Net.onClient(RemoteNames.VerdictRevealed, function(payload)
 		playerVote,
 		isCorrect,
 		currentRole,
-		guiltyCount
+		guiltyCount,
+		twist
 	)
 end)
 
