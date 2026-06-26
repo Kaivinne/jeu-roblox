@@ -18,6 +18,7 @@ local RoleService = require(Server.services.RoleService)
 local CaseService = require(Server.services.CaseService)
 local NPCService = require(Server.services.NPCService)
 local RewardService = require(Server.services.RewardService)
+local AnalyticsService = require(Server.services.AnalyticsService)
 
 local MatchService = {}
 
@@ -160,6 +161,19 @@ local function computeAndBroadcastVerdict()
 		end
 	end
 	RewardService.grantPostVerdict(Players:GetPlayers(), state.PlayerRoles, correctJurors)
+
+	AnalyticsService.track(nil, "VerdictRevealed", {
+		matchId = state.MatchId,
+		format = state.Format,
+		verdict = tostring(verdict),
+		guiltyCount = guiltyCount,
+		innocentCount = innocentCount,
+		liarLied = liarLied,
+	})
+	AnalyticsService.track(nil, "MatchCompleted", {
+		matchId = state.MatchId,
+		format = state.Format,
+	})
 end
 
 local function scheduleNextPhase(phase: Types.MatchPhase, duration: number)
@@ -235,6 +249,14 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 		)
 	)
 
+	AnalyticsService.track(nil, "PhaseChanged", {
+		matchId = state.MatchId,
+		from = oldPhase,
+		to = newPhase,
+		format = state.Format,
+		playerCount = playerCount,
+	})
+
 	-- Actions spécifiques post-broadcast
 	if newPhase == "Matchmaking" then
 		local players = Players:GetPlayers()
@@ -252,6 +274,11 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 		end
 		print(string.format("[MatchService] Match %s | %d joueur(s)", state.MatchId, #players))
 		RoleService.broadcastRoles(players, state.PlayerRoles, state.MatchId)
+		AnalyticsService.track(nil, "MatchStarted", {
+			matchId = state.MatchId,
+			format = state.Format,
+			playerCount = #players,
+		})
 	elseif newPhase == "Intro" then
 		-- Envoyer les données de l'affaire à chaque joueur selon son rôle
 		local case = CaseService.getCase()
@@ -278,6 +305,11 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 				RoleObjective = getRoleObjective(role),
 				TruthGuide = guide,
 				LiarHint = liarHint,
+			})
+			AnalyticsService.track(player, "CaseIntroShown", {
+				matchId = state.MatchId,
+				caseId = case.Id,
+				role = tostring(role),
 			})
 		end
 	elseif newPhase == "Testimony" then
@@ -309,6 +341,11 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 				local contradictions = CaseService.findContradictions(currentCase, npcDecl)
 				if #contradictions > 0 then
 					print("[MatchService] NPC contradiction : " .. table.concat(contradictions, ", "))
+					AnalyticsService.track(nil, "ContradictionDetected", {
+						matchId = state.MatchId,
+						field = contradictions[1],
+						isNpc = true,
+					})
 					Net.broadcast(RemoteNames.ContradictionDetected, {
 						Field = contradictions[1],
 					})
@@ -393,6 +430,11 @@ function MatchService.init()
 			)
 		)
 
+		AnalyticsService.track(player, "DeclarationSubmitted", {
+			matchId = state.MatchId,
+			role = tostring(role),
+		})
+
 		Net.broadcast(RemoteNames.DeclarationBroadcast, {
 			FromName = player.DisplayName,
 			FieldValues = fieldValues,
@@ -407,6 +449,10 @@ function MatchService.init()
 					table.concat(contradictions, ", ")
 				)
 			)
+			AnalyticsService.track(player, "ContradictionDetected", {
+				matchId = state.MatchId,
+				field = contradictions[1],
+			})
 			Net.broadcast(RemoteNames.ContradictionDetected, {
 				Field = contradictions[1],
 			})
@@ -461,6 +507,10 @@ function MatchService.init()
 		end
 		state.Votes[player.UserId] = vote :: Types.VerdictValue
 		print(string.format("[MatchService] Vote de %s : %s", player.DisplayName, tostring(vote)))
+		AnalyticsService.track(player, "VerdictSubmitted", {
+			matchId = state.MatchId,
+			vote = tostring(vote),
+		})
 	end)
 
 	-- Objection : fonctionnalité Phase 2
@@ -489,6 +539,11 @@ function MatchService.init()
 		state.Votes[player.UserId] = nil
 		state.Declarations[player.UserId] = nil
 		print(string.format("[MatchService] %s a quitté en phase %s", player.DisplayName, state.Phase))
+		AnalyticsService.track(player, "PlayerLeftMidMatch", {
+			matchId = state.MatchId,
+			phase = state.Phase,
+			format = state.Format,
+		})
 		-- Compter les joueurs humains restants (UserId > 0)
 		local realPlayers = 0
 		for userId in pairs(state.PlayerRoles) do

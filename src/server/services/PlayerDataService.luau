@@ -12,6 +12,8 @@ local Types = require(Shared.Types)
 local Net = require(Shared.Net)
 local RemoteNames = require(Shared.RemoteNames)
 
+local AnalyticsService = require(script.Parent.AnalyticsService)
+
 local PlayerDataService = {}
 
 -- ─── Configuration ────────────────────────────────────────────────────────────
@@ -185,6 +187,11 @@ local function onPlayerAdded(player: Player)
 
 		gameProfiles[player.UserId] = loaded
 		startAutosave(player.UserId)
+
+		AnalyticsService.track(player, "PlayerJoined", {
+			rang = loaded.RangActuel,
+			partiesJouees = loaded.PartiesJouees,
+		})
 
 		print(
 			string.format(

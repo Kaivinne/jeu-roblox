@@ -12,6 +12,7 @@ local RemoteNames = require(Shared.RemoteNames)
 
 local Server = script.Parent.Parent
 local PlayerDataService = require(Server.services.PlayerDataService)
+local AnalyticsService = require(Server.services.AnalyticsService)
 
 local RewardService = {}
 
@@ -66,6 +67,13 @@ function RewardService.grantPostVerdict(
 				if rangMonte then " ↑ (montée de rang)" else ""
 			)
 		)
+
+		AnalyticsService.track(player, "RewardGranted", {
+			jetons = jetons,
+			isCorrect = isCorrect,
+			rang = profile.RangActuel,
+			rangMonte = rangMonte,
+		})
 
 		Net.fire(player, RemoteNames.RewardGranted, {
 			XP = 0,
