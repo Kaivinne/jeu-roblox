@@ -138,13 +138,20 @@ Net.onClient(RemoteNames.TimerSync, function(payload)
 	end
 end)
 
--- Déclaration d'un autre joueur reçue (visible par tous)
+-- Déclaration d'un autre joueur ou du NPC reçue (visible par tous)
 Net.onClient(RemoteNames.DeclarationBroadcast, function(payload)
 	local fromName = payload.FromName
 	local fieldValues = payload.FieldValues
 	if type(fromName) == "string" and type(fieldValues) == "table" then
 		local values = fieldValues :: { string }
-		Toast.info(fromName .. " : " .. table.concat(values, " · "))
+		if payload.IsNpc == true then
+			Toast.info("Le témoin a déposé sa déclaration.")
+			task.delay(1, function()
+				Toast.info(fromName .. " a dit : " .. table.concat(values, " · "))
+			end)
+		else
+			Toast.info(fromName .. " : " .. table.concat(values, " · "))
+		end
 	end
 end)
 
@@ -152,7 +159,7 @@ end)
 Net.onClient(RemoteNames.ContradictionDetected, function(payload)
 	local field = payload.Field
 	if type(field) == "string" then
-		Toast.error("Incohérence détectée…")
+		Toast.error("Une incohérence semble apparaître…")
 	end
 end)
 
@@ -201,6 +208,19 @@ Net.onClient(RemoteNames.VerdictRevealed, function(payload)
 		if currentRole == "Juror" then
 			local truth = truthSummary :: { { Key: string, Value: string } }
 			VerdictScreen.showTruth(caseTitle, truth, liarId, didLie, liarDecl)
+			-- Feedback correct/incorrect basé sur le vote local
+			local playerVote = VerdictScreen.getLastVote()
+			if playerVote ~= "" then
+				local votedGuilty = playerVote == "Guilty"
+				local isCorrect = (votedGuilty and didLie) or (not votedGuilty and not didLie)
+				task.delay(2, function()
+					if isCorrect then
+						Toast.success("Votre verdict était correct !")
+					else
+						Toast.error("Votre verdict était incorrect.")
+					end
+				end)
+			end
 		else
 			if didLie then
 				Toast.error("Le Menteur a bien menti !")
@@ -220,4 +240,4 @@ Net.onClient(RemoteNames.RewardGranted, function(payload)
 	end
 end)
 
-print("[Client] The Witness Box v1.4 — UI prête")
+print("[Client] The Witness Box v1.5 — UI prête")

@@ -21,6 +21,7 @@ local guiltyBtn: TextButton? = nil
 local innocentBtn: TextButton? = nil
 local confirmLabel: TextLabel? = nil
 local hasVoted = false
+local lastVote: string = ""
 
 -- Panneau de résultat (PostVerdict)
 local resultPanel: Frame? = nil
@@ -49,6 +50,7 @@ local function onVote(vote: string)
 		return
 	end
 	hasVoted = true
+	lastVote = vote
 
 	fireServer(RemoteNames.VoteCast, { Vote = vote })
 	lockButtons()
@@ -246,6 +248,7 @@ function VerdictScreen.show()
 	end
 	gui.Enabled = true
 	hasVoted = false
+	lastVote = ""
 
 	if votingPanel then
 		votingPanel.Visible = true
@@ -363,6 +366,11 @@ function VerdictScreen.showTruth(
 			liarStatusLabel.TextColor3 = UIUtils.Color.Gold
 		end
 	end
+end
+
+-- Retourne le dernier vote du joueur ("Guilty", "Innocent", ou "" si pas encore voté)
+function VerdictScreen.getLastVote(): string
+	return lastVote
 end
 
 return VerdictScreen

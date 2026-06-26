@@ -16,6 +16,7 @@ local Server = script.Parent.Parent
 local MatchStateMachine = require(Server.MatchStateMachine)
 local RoleService = require(Server.services.RoleService)
 local CaseService = require(Server.services.CaseService)
+local NPCService = require(Server.services.NPCService)
 
 local MatchService = {}
 
@@ -26,6 +27,7 @@ local state: Types.MatchState = {
 	PlayerRoles = {},
 	Votes = {},
 	Declarations = {},
+	NpcIsLiar = false,
 	PhaseStartedAt = 0,
 	PhaseTimer = nil,
 }
@@ -93,7 +95,6 @@ local function computeAndBroadcastVerdict()
 	end
 	local verdict: Types.VerdictValue = if guiltyCount > innocentCount then "Guilty" else "Innocent"
 
-	-- Révélation de la vérité et du comportement du Menteur
 	local case = CaseService.getCase()
 	local truthText = CaseService.getTruthText(case)
 
@@ -101,6 +102,7 @@ local function computeAndBroadcastVerdict()
 	local liarLied = false
 	local liarFieldValues: { string } = {}
 
+	-- Chercher un Menteur humain dans les rôles
 	for userId, role in pairs(state.PlayerRoles) do
 		if role == "Liar" then
 			liarUserId = userId
@@ -114,19 +116,33 @@ local function computeAndBroadcastVerdict()
 		end
 	end
 
+	-- Mode Solo : le NPC joue le rôle de témoin
+	if state.Format == "Solo" then
+		local npcDecl = state.Declarations[NPCService.NPC_USER_ID]
+		if npcDecl then
+			local contradictions = CaseService.findContradictions(case, npcDecl)
+			liarLied = #contradictions > 0
+			liarFieldValues = CaseService.getDeclarationText(case, npcDecl)
+		else
+			-- Le NPC n'a pas encore déclaré (phase trop courte) — utiliser l'intention
+			liarLied = state.NpcIsLiar
+		end
+	end
+
 	Net.broadcast(RemoteNames.VerdictRevealed, {
 		Verdict = verdict,
 		GuiltyCount = guiltyCount,
 		CaseTitle = case.Title,
-		TruthSummary = truthText, -- { { Key, Value } }
+		TruthSummary = truthText,
 		LiarUserId = liarUserId,
 		LiarLied = liarLied,
-		LiarDeclaration = liarFieldValues, -- ce que le Menteur a déclaré
+		LiarDeclaration = liarFieldValues,
+		NpcName = NPCService.NPC_NAME,
 	})
 
 	print(
 		string.format(
-			"[MatchService] Verdict: %s (%d coupable / %d innocent) — Menteur a menti: %s",
+			"[MatchService] Verdict: %s (%d coupable / %d innocent) — Témoin a menti: %s",
 			verdict,
 			guiltyCount,
 			innocentCount,
@@ -163,10 +179,12 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 		state.Format = selectFormat(#Players:GetPlayers())
 		state.Votes = {}
 		state.Declarations = {}
+		state.NpcIsLiar = false
 	elseif newPhase == "Lobby" then
 		state.PlayerRoles = {}
 		state.Votes = {}
 		state.Declarations = {}
+		state.NpcIsLiar = false
 		state.MatchId = ""
 	end
 
@@ -199,6 +217,17 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 	if newPhase == "Matchmaking" then
 		local players = Players:GetPlayers()
 		state.PlayerRoles = RoleService.assignForMatch(players, state.Format)
+		-- Mode Solo : décider si le NPC mentira avant le début du témoignage
+		if state.Format == "Solo" then
+			state.NpcIsLiar = NPCService.decideLie()
+			print(
+				string.format(
+					"[MatchService] Solo — NPC %s : %s",
+					NPCService.NPC_NAME,
+					if state.NpcIsLiar then "Menteur" else "Honnête"
+				)
+			)
+		end
 		print(string.format("[MatchService] Match %s | %d joueur(s)", state.MatchId, #players))
 		RoleService.broadcastRoles(players, state.PlayerRoles, state.MatchId)
 	elseif newPhase == "Intro" then
@@ -213,9 +242,9 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 			local guide: { [string]: number }? = nil
 			local liarHint: string? = nil
 			if role == "HonestWitness" then
-				guide = truthGuide -- voit les bonnes réponses
+				guide = truthGuide
 			elseif role == "Liar" then
-				guide = truthGuide -- voit ce qu'il doit éviter
+				guide = truthGuide
 				liarHint = case.LiarHint
 			end
 			Net.fire(player, RemoteNames.CaseIntroReceived, {
@@ -229,7 +258,42 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 				LiarHint = liarHint,
 			})
 		end
-	elseif newPhase == "Testimony" or newPhase == "Deliberation" or newPhase == "Verdict" then
+	elseif newPhase == "Testimony" then
+		startTimerSync(newPhase, duration)
+		-- Mode Solo : déclaration automatique du NPC après un délai aléatoire
+		if state.Format == "Solo" then
+			local capturedPhase = newPhase
+			local npcDelay = math.random(5, 12)
+			task.delay(npcDelay, function()
+				if state.Phase ~= capturedPhase then
+					return
+				end
+				local npcDecl = CaseService.buildNpcDeclaration(state.NpcIsLiar)
+				state.Declarations[NPCService.NPC_USER_ID] = npcDecl
+				local currentCase = CaseService.getCase()
+				local fieldValues = CaseService.getDeclarationText(currentCase, npcDecl)
+				print(
+					string.format(
+						"[MatchService] NPC déclare (%s) : %s",
+						if state.NpcIsLiar then "Menteur" else "Honnête",
+						table.concat(fieldValues, " · ")
+					)
+				)
+				Net.broadcast(RemoteNames.DeclarationBroadcast, {
+					FromName = NPCService.NPC_NAME,
+					FieldValues = fieldValues,
+					IsNpc = true,
+				})
+				local contradictions = CaseService.findContradictions(currentCase, npcDecl)
+				if #contradictions > 0 then
+					print("[MatchService] NPC contradiction : " .. table.concat(contradictions, ", "))
+					Net.broadcast(RemoteNames.ContradictionDetected, {
+						Field = contradictions[1],
+					})
+				end
+			end)
+		end
+	elseif newPhase == "Deliberation" or newPhase == "Verdict" then
 		startTimerSync(newPhase, duration)
 	elseif newPhase == "PostVerdict" then
 		computeAndBroadcastVerdict()
@@ -271,7 +335,7 @@ function MatchService.init()
 		return MatchService.getPublicState()
 	end
 
-	-- Déclaration : acceptée uniquement en Testimony pour les témoins
+	-- Déclaration : acceptée uniquement en Testimony pour les témoins humains
 	Net.onServer(RemoteNames.DeclarationSubmitted, function(player, payload)
 		if state.Phase ~= "Testimony" then
 			rejectAction(player, "Déclaration hors phase de témoignage")
@@ -293,7 +357,6 @@ function MatchService.init()
 		end
 		local fieldSelections = fields :: { [string]: number }
 
-		-- Stocker la déclaration
 		state.Declarations[player.UserId] = fieldSelections
 
 		local case = CaseService.getCase()
@@ -308,13 +371,11 @@ function MatchService.init()
 			)
 		)
 
-		-- Diffuser la déclaration aux observateurs (pas d'info sur le rôle)
 		Net.broadcast(RemoteNames.DeclarationBroadcast, {
 			FromName = player.DisplayName,
 			FieldValues = fieldValues,
 		})
 
-		-- Vérifier les contradictions avec la vérité officielle
 		local contradictions = CaseService.findContradictions(case, fieldSelections)
 		if #contradictions > 0 then
 			print(
@@ -324,7 +385,6 @@ function MatchService.init()
 					table.concat(contradictions, ", ")
 				)
 			)
-			-- Broadcast visuel subtil (ne révèle pas qui a menti)
 			Net.broadcast(RemoteNames.ContradictionDetected, {
 				Field = contradictions[1],
 			})

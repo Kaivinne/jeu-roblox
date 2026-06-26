@@ -33,6 +33,7 @@ export type MatchState = {
 	PlayerRoles: { [number]: PlayerRole },
 	Votes: { [number]: VerdictValue },
 	Declarations: { [number]: { [string]: number } }, -- [UserId] = { [FieldKey] = selectedIndex }
+	NpcIsLiar: boolean, -- Solo uniquement : le NPC doit-il mentir ?
 	PhaseStartedAt: number,
 	PhaseTimer: thread?,
 }

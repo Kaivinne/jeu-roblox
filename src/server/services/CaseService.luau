@@ -121,4 +121,21 @@ function CaseService.getDeclarationText(
 	return values
 end
 
+-- Construit une déclaration NPC pour le mode Solo.
+-- Si shouldLie, ment sur un champ aléatoire (index différent de TruthIndex).
+function CaseService.buildNpcDeclaration(shouldLie: boolean): { [string]: number }
+	local case = CASE_LIBRARY[1]
+	local decl: { [string]: number } = {}
+	for _, f in ipairs(case.Fields) do
+		decl[f.Key] = f.TruthIndex
+	end
+	if shouldLie then
+		local fields = case.Fields
+		local lieField = fields[math.random(1, #fields)]
+		-- Wrap autour pour toujours choisir un index valide et différent
+		decl[lieField.Key] = (lieField.TruthIndex % #lieField.Options) + 1
+	end
+	return decl
+end
+
 return CaseService
