@@ -9,17 +9,21 @@ local Server = script.Parent
 local AnalyticsService = require(Server.services.AnalyticsService)
 local PlayerDataService = require(Server.services.PlayerDataService)
 local MatchService = require(Server.services.MatchService)
+local WorldBuilder = require(Server.services.WorldBuilder)
 
 -- 1. Créer tous les remotes avant que le client puisse en avoir besoin
 Net.init()
 
--- 2. Instrumentation (en premier pour capter les events des autres services)
+-- 2. Construire la salle d'audience (Workspace, avant tout le reste)
+WorldBuilder.buildCourthouse()
+
+-- 3. Instrumentation (en premier pour capter les events des autres services)
 AnalyticsService.init()
 
--- 3. Gérer les profils joueur
+-- 4. Gérer les profils joueur
 PlayerDataService.init()
 
--- 4. Démarrer la boucle de jeu
+-- 5. Démarrer la boucle de jeu
 MatchService.init()
 
 print("[Bootstrap] The Witness Box — serveur prêt")

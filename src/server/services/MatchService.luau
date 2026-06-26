@@ -19,6 +19,7 @@ local CaseService = require(Server.services.CaseService)
 local NPCService = require(Server.services.NPCService)
 local RewardService = require(Server.services.RewardService)
 local AnalyticsService = require(Server.services.AnalyticsService)
+local WorldBuilder = require(Server.services.WorldBuilder)
 
 local MatchService = {}
 
@@ -215,6 +216,14 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 		state.Declarations = {}
 		state.NpcIsLiar = false
 	elseif newPhase == "Lobby" then
+		-- Ramener tous les joueurs à la galerie avant de réinitialiser l'état
+		local lobbyTarget = WorldBuilder.getLobbySpawnCFrame()
+		for _, player in ipairs(Players:GetPlayers()) do
+			local char = player.Character
+			if char and char:FindFirstChild("HumanoidRootPart") then
+				char:PivotTo(lobbyTarget)
+			end
+		end
 		state.PlayerRoles = {}
 		state.Votes = {}
 		state.Declarations = {}
@@ -294,6 +303,16 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 			playerCount = #players,
 		})
 	elseif newPhase == "Intro" then
+		-- Téléporter chaque joueur à sa position de rôle
+		for _, player in ipairs(Players:GetPlayers()) do
+			local role = state.PlayerRoles[player.UserId]
+			if role then
+				local char = player.Character
+				if char and char:FindFirstChild("HumanoidRootPart") then
+					char:PivotTo(WorldBuilder.getRoleSpawnCFrame(tostring(role)))
+				end
+			end
+		end
 		-- Envoyer les données de l'affaire à chaque joueur selon son rôle
 		local case = CaseService.getCase()
 		local clientFields = CaseService.getClientFields(case)
