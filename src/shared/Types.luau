@@ -30,6 +30,7 @@ export type MatchState = {
 	MatchId: string,
 	Phase: MatchPhase,
 	Format: GameFormat,
+	CaseId: string, -- Id de l'affaire active (ex: "case_001")
 	PlayerRoles: { [number]: PlayerRole },
 	Votes: { [number]: VerdictValue },
 	Declarations: { [number]: { [string]: number } }, -- [UserId] = { [FieldKey] = selectedIndex }

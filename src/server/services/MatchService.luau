@@ -26,6 +26,7 @@ local state: Types.MatchState = {
 	MatchId = "",
 	Phase = "Lobby",
 	Format = "Duel",
+	CaseId = "",
 	PlayerRoles = {},
 	Votes = {},
 	Declarations = {},
@@ -164,6 +165,7 @@ local function computeAndBroadcastVerdict()
 
 	AnalyticsService.track(nil, "VerdictRevealed", {
 		matchId = state.MatchId,
+		caseId = state.CaseId,
 		format = state.Format,
 		verdict = tostring(verdict),
 		guiltyCount = guiltyCount,
@@ -172,6 +174,7 @@ local function computeAndBroadcastVerdict()
 	})
 	AnalyticsService.track(nil, "MatchCompleted", {
 		matchId = state.MatchId,
+		caseId = state.CaseId,
 		format = state.Format,
 	})
 end
@@ -202,6 +205,7 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 	if newPhase == "Matchmaking" then
 		state.MatchId = newMatchId()
 		state.Format = selectFormat(#Players:GetPlayers())
+		state.CaseId = CaseService.selectForMatch()
 		state.Votes = {}
 		state.Declarations = {}
 		state.NpcIsLiar = false
@@ -211,6 +215,7 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 		state.Declarations = {}
 		state.NpcIsLiar = false
 		state.MatchId = ""
+		state.CaseId = ""
 	end
 
 	-- Avertir les Jurés qui n'ont pas voté avant de passer en PostVerdict
@@ -277,6 +282,7 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 		AnalyticsService.track(nil, "MatchStarted", {
 			matchId = state.MatchId,
 			format = state.Format,
+			caseId = state.CaseId,
 			playerCount = #players,
 		})
 	elseif newPhase == "Intro" then
@@ -343,6 +349,7 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 					print("[MatchService] NPC contradiction : " .. table.concat(contradictions, ", "))
 					AnalyticsService.track(nil, "ContradictionDetected", {
 						matchId = state.MatchId,
+						caseId = state.CaseId,
 						field = contradictions[1],
 						isNpc = true,
 					})
@@ -432,6 +439,7 @@ function MatchService.init()
 
 		AnalyticsService.track(player, "DeclarationSubmitted", {
 			matchId = state.MatchId,
+			caseId = state.CaseId,
 			role = tostring(role),
 		})
 
@@ -451,6 +459,7 @@ function MatchService.init()
 			)
 			AnalyticsService.track(player, "ContradictionDetected", {
 				matchId = state.MatchId,
+				caseId = state.CaseId,
 				field = contradictions[1],
 			})
 			Net.broadcast(RemoteNames.ContradictionDetected, {
@@ -564,6 +573,7 @@ function MatchService.init()
 			state.Declarations = {}
 			state.NpcIsLiar = false
 			state.MatchId = ""
+			state.CaseId = ""
 			state.PhaseStartedAt = tick()
 		end
 	end)
