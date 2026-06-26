@@ -62,7 +62,7 @@ export type CaseFieldClient = {
 	Options: { string },
 }
 
--- Profil de progression en mémoire (pas encore de DataStore)
+-- Profil de progression joueur (persisté en DataStore, chargé en mémoire à PlayerAdded)
 export type ProfileData = {
 	Jetons: number,
 	PartiesJouees: number,

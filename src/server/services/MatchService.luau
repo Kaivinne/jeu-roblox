@@ -468,12 +468,9 @@ function MatchService.init()
 		rejectAction(player, "Les objections arrivent en Phase 2")
 	end)
 
-	-- Auto-démarrage quand le seuil Duel est atteint + push profil initial
-	Players.PlayerAdded:Connect(function(player)
-		-- Petit délai pour que PlayerDataService crée le profil d'abord
-		task.delay(0.5, function()
-			RewardService.pushProfile(player)
-		end)
+	-- Auto-démarrage quand le seuil Duel est atteint
+	Players.PlayerAdded:Connect(function(_player)
+		-- Le profil initial est poussé par PlayerDataService après chargement DataStore
 		if state.Phase == "Lobby" and #Players:GetPlayers() >= Config.Format.Duel.Min then
 			task.delay(Config.PhaseDuration.Lobby, function()
 				if state.Phase == "Lobby" then
