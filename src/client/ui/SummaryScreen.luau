@@ -391,10 +391,15 @@ function SummaryScreen.show(
 		end
 	end
 
-	-- Vibration visuelle du panneau sur verdict incorrect
+	-- Vibration visuelle du panneau sur verdict incorrect.
+	-- Délai = durée de animateIn (0.30s) pour ne pas lire la position décalée
+	-- et ne pas entrer en conflit avec le tween d'entrée.
 	if isCorrect == false then
-		local shakePanel = mainPanel
-		if shakePanel ~= nil then
+		task.delay(0.32, function()
+			local shakePanel = mainPanel
+			if shakePanel == nil then
+				return
+			end
 			local base = shakePanel.Position
 			local xs = base.X.Scale
 			local ox = base.X.Offset
@@ -413,7 +418,7 @@ function SummaryScreen.show(
 					}):Play()
 				end)
 			end)
-		end
+		end)
 	end
 
 	-- Twist narratif

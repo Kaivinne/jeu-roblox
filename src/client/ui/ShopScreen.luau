@@ -349,7 +349,10 @@ function ShopScreen.hide()
 	local p = _panel
 	if p then
 		UIUtils.animateOut(p, function()
-			g.Enabled = false
+			-- Vérifie que la boutique n'a pas été rouverte pendant l'animation de sortie.
+			if not isOpen then
+				g.Enabled = false
+			end
 		end, 0.18)
 	else
 		g.Enabled = false

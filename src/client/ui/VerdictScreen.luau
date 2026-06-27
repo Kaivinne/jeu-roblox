@@ -186,8 +186,8 @@ function VerdictScreen.setup()
 	innocent.MouseButton1Click:Connect(function()
 		onVote("Innocent")
 	end)
-	UIUtils.hoverButton(guilty)
-	UIUtils.hoverButton(innocent)
+	-- Pas de hoverButton ici : lockButtons() tweene BackgroundTransparency à 0.6
+	-- après le vote, ce qui entre en conflit avec la valeur base=0 capturée par hover.
 
 	-- ── Panneau de RÉSULTAT ───────────────────────────────────────────────────
 	local rPanel = Instance.new("Frame")
