@@ -15,6 +15,7 @@ local UIUtils = require(script.Parent.UIUtils)
 local DeclarationBuilder = {}
 
 local gui: ScreenGui? = nil
+local _panel: Frame? = nil
 local fieldsFrame: Frame? = nil
 local titleLabel: TextLabel? = nil
 local hintLabel: TextLabel? = nil
@@ -145,6 +146,9 @@ local function makeFieldRow(
 		end
 	end
 
+	UIUtils.hoverButton(btnLeft, 0.18)
+	UIUtils.hoverButton(btnRight, 0.18)
+
 	btnLeft.MouseButton1Click:Connect(function()
 		selectedIndex[idx] = ((selectedIndex[idx] - 2) % #opts) + 1
 		valueLabel.Text = opts[selectedIndex[idx]]
@@ -191,6 +195,7 @@ function DeclarationBuilder.setup()
 	UIUtils.round(panel, 14)
 	UIUtils.stroke(panel, UIUtils.Color.Gold, 2)
 	UIUtils.responsivePanel(panel, 520)
+	_panel = panel
 
 	-- Titre (mis à jour selon le rôle dans loadCase)
 	local title = Instance.new("TextLabel")
@@ -251,6 +256,7 @@ function DeclarationBuilder.setup()
 	UIUtils.stroke(submit, UIUtils.Color.Gold, 1)
 	submitBtn = submit
 
+	UIUtils.hoverButton(submit)
 	submit.MouseButton1Click:Connect(function()
 		if not canSubmit then
 			return
@@ -350,6 +356,12 @@ function DeclarationBuilder.show()
 		if submitBtn then
 			submitBtn.Text = "VALIDER MA DÉCLARATION"
 			submitBtn.BackgroundColor3 = UIUtils.Color.Navy
+		end
+
+		-- Slide depuis le bas
+		local p = _panel
+		if p then
+			UIUtils.animateIn(p, "bottom", 0.25)
 		end
 	end
 end

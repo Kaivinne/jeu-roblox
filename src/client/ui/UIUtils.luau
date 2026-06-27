@@ -1,5 +1,8 @@
 --!strict
 -- Constantes visuelles et helpers partagés par tous les modules UI.
+-- M3.0 : helpers d'animation centralisés (animateIn / animateOut / hoverButton / pulse).
+
+local TweenService = game:GetService("TweenService")
 
 local UIUtils = {}
 
@@ -19,6 +22,8 @@ UIUtils.Font = {
 	Title = Enum.Font.GothamBold,
 	Body = Enum.Font.Gotham,
 }
+
+-- ─── Helpers structurels ──────────────────────────────────────────────────────
 
 -- Applique des coins arrondis
 function UIUtils.round(obj: GuiObject, radius: number)
@@ -75,6 +80,97 @@ function UIUtils.makeButton(
 	btn.Parent = parent
 	UIUtils.round(btn, 10)
 	return btn
+end
+
+-- ─── Animation helpers ────────────────────────────────────────────────────────
+
+-- Slide un GuiObject depuis un léger décalage vers sa position réelle (Quint Out).
+-- Lit la position courante comme cible — non-destructif et re-entrant.
+-- dir : "bottom" (défaut) | "top" | "left" | "right"
+-- dur : durée en secondes (défaut 0.22)
+function UIUtils.animateIn(frame: GuiObject, dir: string?, dur: number?)
+	local direction = dir or "bottom"
+	local duration = dur or 0.22
+	local OFFSET = 16
+	local target = frame.Position
+	-- Initialise avec la variante "bottom" ; les branches if écrasent si besoin.
+	local start = UDim2.new(target.X.Scale, target.X.Offset, target.Y.Scale, target.Y.Offset + OFFSET)
+	if direction == "top" then
+		start = UDim2.new(target.X.Scale, target.X.Offset, target.Y.Scale, target.Y.Offset - OFFSET)
+	elseif direction == "left" then
+		start = UDim2.new(target.X.Scale, target.X.Offset - OFFSET, target.Y.Scale, target.Y.Offset)
+	elseif direction == "right" then
+		start = UDim2.new(target.X.Scale, target.X.Offset + OFFSET, target.Y.Scale, target.Y.Offset)
+	end
+	frame.Position = start
+	TweenService:Create(
+		frame,
+		TweenInfo.new(duration, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+		{ Position = target }
+	):Play()
+end
+
+-- Slide un GuiObject vers un léger décalage (Quad In), puis appelle onComplete.
+-- Remet la position d'origine après la complétion pour que le prochain
+-- animateIn parte du bon endroit.
+-- dur : durée en secondes (défaut 0.18)
+function UIUtils.animateOut(frame: GuiObject, onComplete: (() -> ())?, dur: number?)
+	local duration = dur or 0.18
+	local OFFSET = 10
+	local origin = frame.Position
+	local dest = UDim2.new(origin.X.Scale, origin.X.Offset, origin.Y.Scale, origin.Y.Offset + OFFSET)
+	local t = TweenService:Create(
+		frame,
+		TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+		{ Position = dest }
+	)
+	t:Play()
+	t.Completed:Connect(function()
+		frame.Position = origin
+		if onComplete ~= nil then
+			onComplete()
+		end
+	end)
+end
+
+-- Ajoute un effet hover subtil à un TextButton : éclaircit au survol.
+-- amt : réduction de BackgroundTransparency au survol (défaut 0.12).
+-- Capture la valeur de base au moment de l'appel.
+function UIUtils.hoverButton(btn: TextButton, amt: number?)
+	local amount = amt or 0.12
+	local base = btn.BackgroundTransparency
+	btn.MouseEnter:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.08, Enum.EasingStyle.Quad), {
+			BackgroundTransparency = math.max(0, base - amount),
+		}):Play()
+	end)
+	btn.MouseLeave:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.12, Enum.EasingStyle.Quad), {
+			BackgroundTransparency = base,
+		}):Play()
+	end)
+end
+
+-- Pulse de taille unique et discret — signale un événement important.
+-- Utilisé sur les panneaux au moment d'une révélation.
+function UIUtils.pulse(frame: GuiObject)
+	local origin = frame.Size
+	local grown = UDim2.new(origin.X.Scale, origin.X.Offset + 6, origin.Y.Scale, origin.Y.Offset + 6)
+	TweenService:Create(frame, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = grown,
+	}):Play()
+	task.delay(0.14, function()
+		TweenService:Create(frame, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			Size = origin,
+		}):Play()
+	end)
+end
+
+-- Fondu d'une Frame de fond : cible la transparence donnée sur la durée donnée.
+function UIUtils.fadeBg(bg: Frame, targetTransparency: number, dur: number?)
+	TweenService:Create(bg, TweenInfo.new(dur or 0.20, Enum.EasingStyle.Quad), {
+		BackgroundTransparency = targetTransparency,
+	}):Play()
 end
 
 return UIUtils

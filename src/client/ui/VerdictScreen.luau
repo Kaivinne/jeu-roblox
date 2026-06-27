@@ -14,6 +14,7 @@ local UIUtils = require(script.Parent.UIUtils)
 local VerdictScreen = {}
 
 local gui: ScreenGui? = nil
+local _bg: Frame? = nil
 
 -- Panneau de vote (Verdict)
 local votingPanel: Frame? = nil
@@ -101,6 +102,7 @@ function VerdictScreen.setup()
 	bg.BackgroundTransparency = 0.3
 	bg.BorderSizePixel = 0
 	bg.Parent = screen
+	_bg = bg
 
 	-- ── Panneau de VOTE ───────────────────────────────────────────────────────
 	local vPanel = Instance.new("Frame")
@@ -184,6 +186,8 @@ function VerdictScreen.setup()
 	innocent.MouseButton1Click:Connect(function()
 		onVote("Innocent")
 	end)
+	UIUtils.hoverButton(guilty)
+	UIUtils.hoverButton(innocent)
 
 	-- ── Panneau de RÉSULTAT ───────────────────────────────────────────────────
 	local rPanel = Instance.new("Frame")
@@ -272,8 +276,15 @@ function VerdictScreen.show()
 	hasVoted = false
 	lastVote = ""
 
+	-- Fond : fade-in depuis transparent
+	if _bg then
+		_bg.BackgroundTransparency = 1
+		UIUtils.fadeBg(_bg, 0.30, 0.22)
+	end
+
 	if votingPanel then
 		votingPanel.Visible = true
+		UIUtils.animateIn(votingPanel, "bottom", 0.28)
 	end
 	if resultPanel then
 		resultPanel.Visible = false
@@ -311,6 +322,7 @@ function VerdictScreen.showResult(verdict: string, guiltyCount: number)
 	end
 	if resultPanel then
 		resultPanel.Visible = true
+		UIUtils.animateIn(resultPanel, "bottom", 0.32)
 	end
 
 	if verdictResultLabel then

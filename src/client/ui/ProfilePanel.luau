@@ -4,12 +4,14 @@
 -- Mis à jour via ProfileUpdated (push serveur uniquement).
 
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 
 local UIUtils = require(script.Parent.UIUtils)
 
 local ProfilePanel = {}
 
 local _gui: ScreenGui? = nil
+local _panel: Frame? = nil
 local jetonsLabel: TextLabel? = nil
 local rangLabel: TextLabel? = nil
 local _perspBar: Frame? = nil
@@ -37,6 +39,7 @@ function ProfilePanel.setup()
 	panel.BackgroundTransparency = 0.25
 	panel.BorderSizePixel = 0
 	panel.Parent = screen
+	_panel = panel
 	UIUtils.round(panel, 10)
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = UIUtils.Color.Gold
@@ -120,6 +123,10 @@ function ProfilePanel.setup()
 			shopClickCallback()
 		end
 	end)
+	UIUtils.hoverButton(boutBtn, 0.15)
+
+	-- Slide depuis la gauche au spawn
+	UIUtils.animateIn(panel, "left", 0.32)
 end
 
 -- Met à jour l'affichage avec les données reçues du serveur
@@ -132,15 +139,19 @@ function ProfilePanel.update(jetons: number, rang: string, perspicacite: number)
 	end
 	if perspFill then
 		local ratio = math.clamp(perspicacite / 100, 0, 1)
-		perspFill.Size = UDim2.new(ratio, 0, 1, 0)
-		-- Couleur de la barre selon la valeur
+		local fillColor: Color3
 		if ratio >= 0.7 then
-			perspFill.BackgroundColor3 = Color3.fromRGB(60, 200, 100) -- vert
+			fillColor = Color3.fromRGB(60, 200, 100)
 		elseif ratio >= 0.4 then
-			perspFill.BackgroundColor3 = Color3.fromRGB(80, 160, 220) -- bleu
+			fillColor = Color3.fromRGB(80, 160, 220)
 		else
-			perspFill.BackgroundColor3 = Color3.fromRGB(200, 80, 80) -- rouge
+			fillColor = Color3.fromRGB(200, 80, 80)
 		end
+		TweenService:Create(
+			perspFill,
+			TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+			{ Size = UDim2.new(ratio, 0, 1, 0), BackgroundColor3 = fillColor }
+		):Play()
 	end
 	if perspLabel then
 		perspLabel.Text = string.format("Perspicacité : %d / 100", perspicacite)

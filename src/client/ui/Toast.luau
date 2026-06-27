@@ -79,7 +79,7 @@ function Toast.show(message: string, kind: string?)
 	local toast = Instance.new("Frame")
 	toast.Size = UDim2.new(1, 0, 0, 44)
 	toast.BackgroundColor3 = getColor(toastKind)
-	toast.BackgroundTransparency = 0.1
+	toast.BackgroundTransparency = 1
 	toast.BorderSizePixel = 0
 	toast.Parent = c
 	UIUtils.round(toast, 8)
@@ -90,16 +90,22 @@ function Toast.show(message: string, kind: string?)
 	label.BackgroundTransparency = 1
 	label.Text = message
 	label.TextColor3 = UIUtils.Color.White
+	label.TextTransparency = 1
 	label.Font = UIUtils.Font.Body
 	label.TextSize = 14
 	label.TextWrapped = true
 	label.TextXAlignment = Enum.TextXAlignment.Left
 	label.Parent = toast
 
+	-- Fade-in
+	local fadeIn = TweenInfo.new(0.18, Enum.EasingStyle.Quad)
+	TweenService:Create(toast, fadeIn, { BackgroundTransparency = 0.1 }):Play()
+	TweenService:Create(label, fadeIn, { TextTransparency = 0 }):Play()
+
 	task.delay(DURATION, function()
-		local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad)
-		local t1 = TweenService:Create(toast, tweenInfo, { BackgroundTransparency = 1 })
-		local t2 = TweenService:Create(label, tweenInfo, { TextTransparency = 1 })
+		local fadeOut = TweenInfo.new(0.25, Enum.EasingStyle.Quad)
+		local t1 = TweenService:Create(toast, fadeOut, { BackgroundTransparency = 1 })
+		local t2 = TweenService:Create(label, fadeOut, { TextTransparency = 1 })
 		t1:Play()
 		t2:Play()
 		t1.Completed:Wait()

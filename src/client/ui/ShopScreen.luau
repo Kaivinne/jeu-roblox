@@ -4,6 +4,7 @@
 -- Les actions sont toutes validées côté serveur.
 
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Net = require(Shared.Net)
@@ -14,6 +15,8 @@ local UIUtils = require(script.Parent.UIUtils)
 local ShopScreen = {}
 
 local shopGui: ScreenGui? = nil
+local _panel: Frame? = nil
+local _bg: Frame? = nil
 local isOpen = false
 local jetonsDisplay: TextLabel? = nil
 local itemList: ScrollingFrame? = nil
@@ -157,6 +160,7 @@ local function buildRows(items: { { [string]: any } }, jetons: number)
 			actionBtn.Font = UIUtils.Font.Title
 			actionBtn.TextSize = 12
 			actionBtn.Active = true
+			UIUtils.hoverButton(actionBtn)
 			actionBtn.MouseButton1Click:Connect(function()
 				Net.getEvent(RemoteNames.ShopEquip):FireServer({ ItemId = itemId })
 			end)
@@ -169,6 +173,7 @@ local function buildRows(items: { { [string]: any } }, jetons: number)
 			actionBtn.TextSize = 12
 			actionBtn.Active = canAfford
 			if canAfford then
+				UIUtils.hoverButton(actionBtn)
 				actionBtn.MouseButton1Click:Connect(function()
 					Net.getEvent(RemoteNames.ShopPurchase):FireServer({ ItemId = itemId })
 				end)
@@ -196,6 +201,7 @@ function ShopScreen.setup()
 	bg.BackgroundTransparency = 0.35
 	bg.BorderSizePixel = 0
 	bg.Parent = screen
+	_bg = bg
 
 	-- Panneau principal
 	local panel = Instance.new("Frame")
@@ -206,6 +212,7 @@ function ShopScreen.setup()
 	panel.BackgroundColor3 = Color3.fromRGB(10, 10, 22)
 	panel.BorderSizePixel = 0
 	panel.Parent = screen
+	_panel = panel
 	UIUtils.round(panel, 16)
 	UIUtils.stroke(panel, UIUtils.Color.Gold, 2)
 	UIUtils.responsivePanel(panel, PANEL_W)
@@ -311,15 +318,41 @@ end
 
 function ShopScreen.open()
 	isOpen = true
-	if shopGui then
-		shopGui.Enabled = true
+	local g = shopGui
+	if not g then
+		return
+	end
+	g.Enabled = true
+	if _bg then
+		_bg.BackgroundTransparency = 1
+		TweenService:Create(_bg, TweenInfo.new(0.20, Enum.EasingStyle.Quad), {
+			BackgroundTransparency = 0.35,
+		}):Play()
+	end
+	local p = _panel
+	if p then
+		UIUtils.animateIn(p, "bottom", 0.28)
 	end
 end
 
 function ShopScreen.hide()
 	isOpen = false
-	if shopGui then
-		shopGui.Enabled = false
+	local g = shopGui
+	if not g then
+		return
+	end
+	if _bg then
+		TweenService:Create(_bg, TweenInfo.new(0.18, Enum.EasingStyle.Quad), {
+			BackgroundTransparency = 1,
+		}):Play()
+	end
+	local p = _panel
+	if p then
+		UIUtils.animateOut(p, function()
+			g.Enabled = false
+		end, 0.18)
+	else
+		g.Enabled = false
 	end
 end
 

@@ -12,6 +12,7 @@ local UIUtils = require(script.Parent.UIUtils)
 local SummaryScreen = {}
 
 local gui: ScreenGui? = nil
+local _bg: Frame? = nil
 local caseTitleLabel: TextLabel? = nil
 local truthContainer: ScrollingFrame? = nil
 local witnessDeclLabel: TextLabel? = nil
@@ -41,6 +42,7 @@ function SummaryScreen.setup()
 	bg.BackgroundTransparency = 0.2
 	bg.BorderSizePixel = 0
 	bg.Parent = screen
+	_bg = bg
 
 	-- Panneau principal
 	local panel = Instance.new("Frame")
@@ -249,6 +251,7 @@ function SummaryScreen.setup()
 	replayBtn.MouseButton1Click:Connect(function()
 		SummaryScreen.hide()
 	end)
+	UIUtils.hoverButton(replayBtn)
 end
 
 -- Affiche l'écran de résumé avec toutes les données de la partie.
@@ -271,6 +274,17 @@ function SummaryScreen.show(
 		return
 	end
 	gui.Enabled = true
+
+	-- Fond : fade-in depuis transparent
+	if _bg then
+		_bg.BackgroundTransparency = 1
+		UIUtils.fadeBg(_bg, 0.20, 0.25)
+	end
+	-- Panneau : slide depuis le bas
+	local p = mainPanel
+	if p then
+		UIUtils.animateIn(p, "bottom", 0.30)
+	end
 
 	if caseTitleLabel then
 		caseTitleLabel.Text = caseTitle:upper()
@@ -379,22 +393,22 @@ function SummaryScreen.show(
 
 	-- Vibration visuelle du panneau sur verdict incorrect
 	if isCorrect == false then
-		local p = mainPanel
-		if p ~= nil then
-			local base = p.Position
+		local shakePanel = mainPanel
+		if shakePanel ~= nil then
+			local base = shakePanel.Position
 			local xs = base.X.Scale
 			local ox = base.X.Offset
 			local ys = base.Y.Scale
 			local oy = base.Y.Offset
-			TweenService:Create(p, TweenInfo.new(0.07, Enum.EasingStyle.Sine), {
+			TweenService:Create(shakePanel, TweenInfo.new(0.07, Enum.EasingStyle.Sine), {
 				Position = UDim2.new(xs, ox - 8, ys, oy),
 			}):Play()
 			task.delay(0.07, function()
-				TweenService:Create(p, TweenInfo.new(0.07, Enum.EasingStyle.Sine), {
+				TweenService:Create(shakePanel, TweenInfo.new(0.07, Enum.EasingStyle.Sine), {
 					Position = UDim2.new(xs, ox + 8, ys, oy),
 				}):Play()
 				task.delay(0.07, function()
-					TweenService:Create(p, TweenInfo.new(0.09, Enum.EasingStyle.Sine), {
+					TweenService:Create(shakePanel, TweenInfo.new(0.09, Enum.EasingStyle.Sine), {
 						Position = UDim2.new(xs, ox, ys, oy),
 					}):Play()
 				end)
@@ -427,8 +441,21 @@ function SummaryScreen.setReward(jetons: number)
 end
 
 function SummaryScreen.hide()
-	if gui then
-		gui.Enabled = false
+	local g = gui
+	if not g then
+		return
+	end
+	-- Slide vers le bas + fade du fond, puis masque
+	if _bg then
+		UIUtils.fadeBg(_bg, 1, 0.18)
+	end
+	local p = mainPanel
+	if p then
+		UIUtils.animateOut(p, function()
+			g.Enabled = false
+		end, 0.18)
+	else
+		g.Enabled = false
 	end
 end
 

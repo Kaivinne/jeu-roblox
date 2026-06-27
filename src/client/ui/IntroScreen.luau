@@ -4,7 +4,6 @@
 -- Disparaît automatiquement quand la phase Testimony commence.
 
 local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
 
 local UIUtils = require(script.Parent.UIUtils)
 
@@ -12,6 +11,7 @@ local IntroScreen = {}
 
 local gui: ScreenGui? = nil
 local introPanel: Frame? = nil
+local _bg: Frame? = nil
 local titleLabel: TextLabel? = nil
 local summaryLabel: TextLabel? = nil
 local accusationLabel: TextLabel? = nil
@@ -46,6 +46,7 @@ function IntroScreen.setup()
 	bg.BackgroundTransparency = 0.18
 	bg.BorderSizePixel = 0
 	bg.Parent = screen
+	_bg = bg
 
 	-- Panneau principal
 	local panel = Instance.new("Frame")
@@ -235,13 +236,15 @@ function IntroScreen.show(
 
 	gui.Enabled = true
 
-	-- Légère animation d'entrée (slide depuis légèrement en-dessous)
+	-- Fond : fade-in depuis transparent
+	if _bg then
+		_bg.BackgroundTransparency = 1
+		UIUtils.fadeBg(_bg, 0.18, 0.22)
+	end
+	-- Panneau : slide depuis le bas
 	local p = introPanel
 	if p then
-		p.Position = UDim2.new(0.5, 0, 0.58, -185)
-		TweenService:Create(p, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Position = UDim2.new(0.5, 0, 0.5, -185),
-		}):Play()
+		UIUtils.animateIn(p, "bottom", 0.30)
 	end
 end
 
