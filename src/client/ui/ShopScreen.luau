@@ -117,7 +117,6 @@ local function buildRows(items: { { [string]: any } }, jetons: number)
 		slotLbl.BackgroundTransparency = 1
 		slotLbl.Text = SLOT_LABELS[itemSlot] or itemSlot
 		slotLbl.TextColor3 = UIUtils.Color.Gold
-		slotLbl.BackgroundTransparency = 1
 		slotLbl.Font = UIUtils.Font.Body
 		slotLbl.TextSize = 10
 		slotLbl.TextXAlignment = Enum.TextXAlignment.Left

@@ -241,7 +241,8 @@ Net.onClient(RemoteNames.VerdictRevealed, function(payload)
 		isCorrect,
 		currentRole,
 		guiltyCount,
-		twist
+		twist,
+		verdict
 	)
 end)
 

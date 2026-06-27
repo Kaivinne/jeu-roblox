@@ -87,6 +87,7 @@ function RewardService.grantPostVerdict(
 			VerdictsCorrects = profile.VerdictsCorrects,
 			VerdictsIncorrects = profile.VerdictsIncorrects,
 			RangPrecedent = if rangMonte then oldRang else nil,
+			EquippedFrame = (profile.EquippedCosmetics :: { [string]: any })["frame"],
 		})
 	end
 end
@@ -105,6 +106,7 @@ function RewardService.pushProfile(player: Player)
 		VerdictsCorrects = profile.VerdictsCorrects,
 		VerdictsIncorrects = profile.VerdictsIncorrects,
 		RangPrecedent = nil,
+		EquippedFrame = (profile.EquippedCosmetics :: { [string]: any })["frame"],
 	})
 end
 

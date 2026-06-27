@@ -264,7 +264,8 @@ function SummaryScreen.show(
 	isCorrect: boolean?,
 	role: string,
 	guiltyCount: number,
-	twist: string
+	twist: string,
+	verdict: string
 )
 	if not gui then
 		return
@@ -355,11 +356,11 @@ function SummaryScreen.show(
 			playerVerdictLabel.Text = "Vous étiez le Menteur."
 			playerVerdictLabel.TextColor3 = UIUtils.Color.Crimson
 		else
-			local vText = guiltyCount > 0
-					and string.format("Verdict collectif : COUPABLE (%d vote(s))", guiltyCount)
-				or string.format("Verdict collectif : INNOCENT (%d vote(s))", guiltyCount)
-			playerVerdictLabel.Text = vText
-			playerVerdictLabel.TextColor3 = UIUtils.Color.Ivory
+			local isGuilty = verdict == "Guilty"
+			playerVerdictLabel.Text = if isGuilty
+				then string.format("Verdict collectif : COUPABLE (%d vote(s))", guiltyCount)
+				else string.format("Verdict collectif : INNOCENT (%d vote(s))", guiltyCount)
+			playerVerdictLabel.TextColor3 = if isGuilty then UIUtils.Color.Crimson else UIUtils.Color.Success
 		end
 	end
 
