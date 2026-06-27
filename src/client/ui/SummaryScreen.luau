@@ -4,6 +4,7 @@
 -- Affiché pour tous les rôles à la phase PostVerdict.
 -- Le bouton Rejouer masque l'écran — le serveur gère le redémarrage automatique.
 
+local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 
 local UIUtils = require(script.Parent.UIUtils)
@@ -19,6 +20,7 @@ local playerVerdictLabel: TextLabel? = nil
 local correctLabel: TextLabel? = nil
 local rewardLabel: TextLabel? = nil
 local twistLabel: TextLabel? = nil
+local mainPanel: Frame? = nil
 
 function SummaryScreen.setup()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
@@ -48,6 +50,7 @@ function SummaryScreen.setup()
 	panel.BorderSizePixel = 0
 	panel.Parent = screen
 	UIUtils.round(panel, 16)
+	mainPanel = panel
 	UIUtils.stroke(panel, UIUtils.Color.Gold, 2)
 
 	-- En-tête
@@ -360,6 +363,31 @@ function SummaryScreen.show(
 			correctLabel.TextColor3 = UIUtils.Color.Crimson
 		else
 			correctLabel.Text = ""
+		end
+	end
+
+	-- Vibration visuelle du panneau sur verdict incorrect
+	if isCorrect == false then
+		local p = mainPanel
+		if p ~= nil then
+			local base = p.Position
+			local xs = base.X.Scale
+			local ox = base.X.Offset
+			local ys = base.Y.Scale
+			local oy = base.Y.Offset
+			TweenService:Create(p, TweenInfo.new(0.07, Enum.EasingStyle.Sine), {
+				Position = UDim2.new(xs, ox - 8, ys, oy),
+			}):Play()
+			task.delay(0.07, function()
+				TweenService:Create(p, TweenInfo.new(0.07, Enum.EasingStyle.Sine), {
+					Position = UDim2.new(xs, ox + 8, ys, oy),
+				}):Play()
+				task.delay(0.07, function()
+					TweenService:Create(p, TweenInfo.new(0.09, Enum.EasingStyle.Sine), {
+						Position = UDim2.new(xs, ox, ys, oy),
+					}):Play()
+				end)
+			end)
 		end
 	end
 

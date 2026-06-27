@@ -22,6 +22,7 @@ local innocentBtn: TextButton? = nil
 local confirmLabel: TextLabel? = nil
 local hasVoted = false
 local lastVote: string = ""
+local voteCastCallback: (() -> ())? = nil
 
 -- Panneau de résultat (PostVerdict)
 local resultPanel: Frame? = nil
@@ -52,8 +53,27 @@ local function onVote(vote: string)
 	hasVoted = true
 	lastVote = vote
 
+	-- Pulse visuel sur le bouton voté
+	local btn = if vote == "Guilty" then guiltyBtn else innocentBtn
+	if btn then
+		local b = btn
+		local origSize = b.Size
+		TweenService
+			:Create(b, TweenInfo.new(0.10, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				Size = UDim2.new(origSize.X.Scale, origSize.X.Offset, origSize.Y.Scale, origSize.Y.Offset + 8),
+			})
+			:Play()
+		task.delay(0.25, function()
+			TweenService:Create(b, TweenInfo.new(0.18, Enum.EasingStyle.Quad), { Size = origSize }):Play()
+		end)
+	end
+
 	fireServer(RemoteNames.VoteCast, { Vote = vote })
 	lockButtons()
+
+	if voteCastCallback ~= nil then
+		voteCastCallback()
+	end
 
 	if confirmLabel then
 		confirmLabel.Text = "Vote enregistré : " .. (vote == "Guilty" and "COUPABLE" or "INNOCENT")
@@ -371,6 +391,11 @@ end
 -- Retourne le dernier vote du joueur ("Guilty", "Innocent", ou "" si pas encore voté)
 function VerdictScreen.getLastVote(): string
 	return lastVote
+end
+
+-- Enregistre un callback appelé immédiatement après qu'un vote soit soumis.
+function VerdictScreen.setOnVoteCast(cb: () -> ())
+	voteCastCallback = cb
 end
 
 return VerdictScreen

@@ -17,6 +17,7 @@ local VerdictScreen = require(script.ui.VerdictScreen)
 local SummaryScreen = require(script.ui.SummaryScreen)
 local ProfilePanel = require(script.ui.ProfilePanel)
 local CameraController = require(script.CameraController)
+local AudioController = require(script.AudioController)
 
 -- Rôle local du joueur (assigné par le serveur pendant Matchmaking)
 local currentRole: string = ""
@@ -30,6 +31,10 @@ VerdictScreen.setup()
 SummaryScreen.setup()
 ProfilePanel.setup()
 CameraController.setup()
+AudioController.setup()
+VerdictScreen.setOnVoteCast(function()
+	AudioController.play("Vote")
+end)
 -- Toast est lazy-initialized à la première notification
 
 -- Masque tous les panneaux contextuels
@@ -79,6 +84,7 @@ Net.onClient(RemoteNames.GamePhaseChanged, function(payload)
 	HUD.setInfo(typed.Format, typed.PlayerCount)
 	applyPhaseUI(typed.Phase)
 	CameraController.onPhaseChanged(typed.Phase)
+	AudioController.onPhaseChanged(typed.Phase)
 end)
 
 -- Attribution du rôle (FireClient individuel — les autres ne voient pas ce message)
@@ -152,6 +158,7 @@ end)
 
 -- Déclaration d'un autre joueur ou du NPC reçue (visible par tous)
 Net.onClient(RemoteNames.DeclarationBroadcast, function(payload)
+	AudioController.play("Declaration")
 	local fromName = payload.FromName
 	local fieldValues = payload.FieldValues
 	if type(fromName) == "string" and type(fieldValues) == "table" then
@@ -171,6 +178,8 @@ end)
 Net.onClient(RemoteNames.ContradictionDetected, function(payload)
 	local field = payload.Field
 	if type(field) == "string" then
+		AudioController.play("Contradiction")
+		AudioController.flashContradiction()
 		Toast.error("Une incohérence semble apparaître dans les déclarations…")
 	end
 end)
@@ -185,6 +194,7 @@ end)
 
 -- Verdict révélé — affiche le SummaryScreen pour tous les rôles
 Net.onClient(RemoteNames.VerdictRevealed, function(payload)
+	AudioController.play("VerdictReveal")
 	local verdict = payload.Verdict
 	local guiltyCount = payload.GuiltyCount
 	local caseTitle = payload.CaseTitle
@@ -231,6 +241,7 @@ end)
 Net.onClient(RemoteNames.RewardGranted, function(payload)
 	local jetons = payload.Jetons
 	if type(jetons) == "number" and jetons > 0 then
+		AudioController.play("Reward")
 		SummaryScreen.setReward(jetons)
 		Toast.success(string.format("+%d Jetons", jetons))
 	end
