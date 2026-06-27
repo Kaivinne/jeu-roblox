@@ -13,7 +13,7 @@ local SummaryScreen = {}
 
 local gui: ScreenGui? = nil
 local caseTitleLabel: TextLabel? = nil
-local truthContainer: Frame? = nil
+local truthContainer: ScrollingFrame? = nil
 local witnessDeclLabel: TextLabel? = nil
 local witnessStatusLabel: TextLabel? = nil
 local playerVerdictLabel: TextLabel? = nil
@@ -50,8 +50,9 @@ function SummaryScreen.setup()
 	panel.BorderSizePixel = 0
 	panel.Parent = screen
 	UIUtils.round(panel, 16)
-	mainPanel = panel
 	UIUtils.stroke(panel, UIUtils.Color.Gold, 2)
+	UIUtils.responsivePanel(panel, 620)
+	mainPanel = panel
 
 	-- En-tête
 	local header = Instance.new("TextLabel")
@@ -98,16 +99,25 @@ function SummaryScreen.setup()
 	truthHeader.TextXAlignment = Enum.TextXAlignment.Left
 	truthHeader.Parent = panel
 
-	local tContainer = Instance.new("Frame")
+	local tContainer = Instance.new("ScrollingFrame")
 	tContainer.Name = "TruthRows"
-	tContainer.Size = UDim2.new(1, -24, 0, 96)
+	tContainer.Size = UDim2.new(1, -24, 0, 100)
 	tContainer.Position = UDim2.new(0, 12, 0, 94)
 	tContainer.BackgroundTransparency = 1
+	tContainer.BorderSizePixel = 0
+	tContainer.ScrollBarThickness = 4
+	tContainer.ScrollBarImageColor3 = UIUtils.Color.Gold
+	tContainer.ScrollingDirection = Enum.ScrollingDirection.Y
+	tContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
 	tContainer.Parent = panel
 	local tLayout = Instance.new("UIListLayout")
 	tLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	tLayout.Padding = UDim.new(0, 4)
 	tLayout.Parent = tContainer
+	-- Adapte le canvas au contenu réel
+	tLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		tContainer.CanvasSize = UDim2.new(0, 0, 0, tLayout.AbsoluteContentSize.Y + 4)
+	end)
 	truthContainer = tContainer
 
 	-- Séparateur 2

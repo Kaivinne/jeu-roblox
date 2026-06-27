@@ -31,7 +31,7 @@ local function getContainer(): Frame
 	local frame = Instance.new("Frame")
 	frame.Name = "ToastContainer"
 	frame.Size = UDim2.new(0.36, 0, 0.5, 0)
-	frame.Position = UDim2.new(0.32, 0, 0.06, 0)
+	frame.Position = UDim2.new(0.32, 0, 0, 60)
 	frame.BackgroundTransparency = 1
 	frame.Parent = gui
 

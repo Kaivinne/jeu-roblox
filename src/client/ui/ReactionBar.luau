@@ -94,7 +94,7 @@ function ReactionBar.setup()
 		btn.Text = def.label
 		btn.TextColor3 = UIUtils.Color.White
 		btn.Font = UIUtils.Font.Title
-		btn.TextSize = 13
+		btn.TextScaled = true
 		btn.AutoButtonColor = false
 		btn.Parent = bar
 		UIUtils.round(btn, 10)

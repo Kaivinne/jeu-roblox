@@ -35,6 +35,18 @@ function UIUtils.stroke(obj: GuiObject, color: Color3, thickness: number)
 	s.Parent = obj
 end
 
+-- Rend un panneau centré responsive : 90 % de largeur écran sur mobile,
+-- plafonné à maxWidth sur PC. Impose AnchorPoint.X = 0.5.
+-- À appeler juste après avoir créé le panneau dans setup().
+function UIUtils.responsivePanel(panel: Frame, maxWidth: number)
+	panel.AnchorPoint = Vector2.new(0.5, panel.AnchorPoint.Y)
+	panel.Size = UDim2.new(0.9, 0, panel.Size.Y.Scale, panel.Size.Y.Offset)
+	panel.Position = UDim2.new(0.5, 0, panel.Position.Y.Scale, panel.Position.Y.Offset)
+	local c = Instance.new("UISizeConstraint")
+	c.MaxSize = Vector2.new(maxWidth, math.huge)
+	c.Parent = panel
+end
+
 -- Formate un nombre de secondes en "MM:SS"
 function UIUtils.formatTime(seconds: number): string
 	local m = math.floor(seconds / 60)

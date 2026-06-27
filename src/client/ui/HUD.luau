@@ -102,8 +102,8 @@ function HUD.setup()
 
 	-- Badge de rôle (droite, haut)
 	local badge = Instance.new("Frame")
-	badge.Size = UDim2.new(0.34, -14, 0, 24)
-	badge.Position = UDim2.new(0.66, 0, 0, 8)
+	badge.Size = UDim2.new(0.34, -14, 0, 28)
+	badge.Position = UDim2.new(0.66, 0, 0, 6)
 	badge.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
 	badge.BorderSizePixel = 0
 	badge.Parent = bar
@@ -116,7 +116,7 @@ function HUD.setup()
 	rLabel.Text = "RÔLE NON ASSIGNÉ"
 	rLabel.TextColor3 = UIUtils.Color.Ivory
 	rLabel.Font = UIUtils.Font.Title
-	rLabel.TextSize = 11
+	rLabel.TextSize = 13
 	rLabel.TextXAlignment = Enum.TextXAlignment.Center
 	rLabel.Parent = badge
 	roleLabel = rLabel
@@ -124,7 +124,7 @@ function HUD.setup()
 	-- Info format/joueurs (droite, bas)
 	local iLabel = Instance.new("TextLabel")
 	iLabel.Size = UDim2.new(0.34, -14, 0, 16)
-	iLabel.Position = UDim2.new(0.66, 0, 0, 34)
+	iLabel.Position = UDim2.new(0.66, 0, 0, 36)
 	iLabel.BackgroundTransparency = 1
 	iLabel.Text = ""
 	iLabel.TextColor3 = UIUtils.Color.Muted

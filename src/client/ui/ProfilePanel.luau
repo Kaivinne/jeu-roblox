@@ -90,7 +90,7 @@ function ProfilePanel.setup()
 	pLabel.Text = "Perspicacité : 50"
 	pLabel.TextColor3 = UIUtils.Color.Muted
 	pLabel.Font = UIUtils.Font.Body
-	pLabel.TextSize = 10
+	pLabel.TextSize = 11
 	pLabel.TextXAlignment = Enum.TextXAlignment.Left
 	pLabel.Parent = panel
 	perspLabel = pLabel

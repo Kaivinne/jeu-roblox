@@ -11,6 +11,7 @@ local UIUtils = require(script.Parent.UIUtils)
 local IntroScreen = {}
 
 local gui: ScreenGui? = nil
+local introPanel: Frame? = nil
 local titleLabel: TextLabel? = nil
 local summaryLabel: TextLabel? = nil
 local accusationLabel: TextLabel? = nil
@@ -55,6 +56,8 @@ function IntroScreen.setup()
 	panel.Parent = screen
 	UIUtils.round(panel, 16)
 	UIUtils.stroke(panel, UIUtils.Color.Gold, 2)
+	UIUtils.responsivePanel(panel, 560)
+	introPanel = panel
 
 	-- Badge dossier en haut
 	local badge = Instance.new("Frame")
@@ -232,17 +235,13 @@ function IntroScreen.show(
 
 	gui.Enabled = true
 
-	-- Légère animation d'entrée
-	if gui.Parent then
-		local panel = gui:FindFirstChildWhichIsA("Frame", true)
-		if panel and panel:IsA("Frame") then
-			panel.Position = UDim2.new(0.5, -280, 0.6, -185)
-			TweenService
-				:Create(panel, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-					Position = UDim2.new(0.5, -280, 0.5, -185),
-				})
-				:Play()
-		end
+	-- Légère animation d'entrée (slide depuis légèrement en-dessous)
+	local p = introPanel
+	if p then
+		p.Position = UDim2.new(0.5, 0, 0.58, -185)
+		TweenService:Create(p, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = UDim2.new(0.5, 0, 0.5, -185),
+		}):Play()
 	end
 end
 

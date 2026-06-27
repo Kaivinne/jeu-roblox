@@ -56,7 +56,7 @@ local function makeFieldRow(
 	def: FieldDef,
 	correctIndex: number?
 ): TextLabel
-	local ROW_H = 52
+	local ROW_H = 56
 
 	local row = Instance.new("Frame")
 	row.Size = UDim2.new(1, 0, 0, ROW_H)
@@ -77,24 +77,24 @@ local function makeFieldRow(
 	fieldLabel.TextXAlignment = Enum.TextXAlignment.Left
 	fieldLabel.Parent = row
 
-	-- Bouton précédent
+	-- Bouton précédent (44 px — tap target mobile)
 	local btnLeft = Instance.new("TextButton")
-	btnLeft.Size = UDim2.new(0, 34, 0, 34)
-	btnLeft.Position = UDim2.new(0, 122, 0.5, -17)
+	btnLeft.Size = UDim2.new(0, 44, 0, 44)
+	btnLeft.Position = UDim2.new(0, 122, 0.5, -22)
 	btnLeft.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
 	btnLeft.BorderSizePixel = 0
 	btnLeft.Text = "<"
 	btnLeft.TextColor3 = UIUtils.Color.White
 	btnLeft.Font = UIUtils.Font.Title
-	btnLeft.TextSize = 16
+	btnLeft.TextSize = 18
 	btnLeft.AutoButtonColor = false
 	btnLeft.Parent = row
-	UIUtils.round(btnLeft, 6)
+	UIUtils.round(btnLeft, 8)
 
 	-- Valeur courante
 	local valueLabel = Instance.new("TextLabel")
-	valueLabel.Size = UDim2.new(1, -230, 1, 0)
-	valueLabel.Position = UDim2.new(0, 162, 0, 0)
+	valueLabel.Size = UDim2.new(1, -244, 1, 0)
+	valueLabel.Position = UDim2.new(0, 170, 0, 0)
 	valueLabel.BackgroundTransparency = 1
 	valueLabel.Text = def.options[1] or "—"
 	valueLabel.TextColor3 = UIUtils.Color.Ivory
@@ -107,7 +107,7 @@ local function makeFieldRow(
 	-- Indicateur de vérité (✓ si option correcte — visible pour HonestWitness)
 	local indicator = Instance.new("TextLabel")
 	indicator.Size = UDim2.new(0, 20, 1, 0)
-	indicator.Position = UDim2.new(1, -56, 0, 0)
+	indicator.Position = UDim2.new(1, -68, 0, 0)
 	indicator.BackgroundTransparency = 1
 	indicator.Text = ""
 	indicator.Font = UIUtils.Font.Title
@@ -115,19 +115,19 @@ local function makeFieldRow(
 	indicator.TextXAlignment = Enum.TextXAlignment.Center
 	indicator.Parent = row
 
-	-- Bouton suivant
+	-- Bouton suivant (44 px — tap target mobile)
 	local btnRight = Instance.new("TextButton")
-	btnRight.Size = UDim2.new(0, 34, 0, 34)
-	btnRight.Position = UDim2.new(1, -46, 0.5, -17)
+	btnRight.Size = UDim2.new(0, 44, 0, 44)
+	btnRight.Position = UDim2.new(1, -48, 0.5, -22)
 	btnRight.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
 	btnRight.BorderSizePixel = 0
 	btnRight.Text = ">"
 	btnRight.TextColor3 = UIUtils.Color.White
 	btnRight.Font = UIUtils.Font.Title
-	btnRight.TextSize = 16
+	btnRight.TextSize = 18
 	btnRight.AutoButtonColor = false
 	btnRight.Parent = row
-	UIUtils.round(btnRight, 6)
+	UIUtils.round(btnRight, 8)
 
 	local idx = fieldIndex
 	local opts = def.options
@@ -190,6 +190,7 @@ function DeclarationBuilder.setup()
 	panel.Parent = screen
 	UIUtils.round(panel, 14)
 	UIUtils.stroke(panel, UIUtils.Color.Gold, 2)
+	UIUtils.responsivePanel(panel, 520)
 
 	-- Titre (mis à jour selon le rôle dans loadCase)
 	local title = Instance.new("TextLabel")
