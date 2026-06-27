@@ -121,7 +121,7 @@ local function buildRows(items: { { [string]: any } }, jetons: number)
 		slotLbl.Text = SLOT_LABELS[itemSlot] or itemSlot
 		slotLbl.TextColor3 = UIUtils.Color.Gold
 		slotLbl.Font = UIUtils.Font.Body
-		slotLbl.TextSize = 10
+		slotLbl.TextSize = 11
 		slotLbl.TextXAlignment = Enum.TextXAlignment.Left
 		slotLbl.Parent = row
 
@@ -151,14 +151,14 @@ local function buildRows(items: { { [string]: any } }, jetons: number)
 			actionBtn.BackgroundColor3 = UIUtils.Color.Charcoal
 			actionBtn.TextColor3 = UIUtils.Color.Muted
 			actionBtn.Font = UIUtils.Font.Title
-			actionBtn.TextSize = 12
+			actionBtn.TextSize = 13
 			actionBtn.Active = false
 		elseif owned then
 			actionBtn.Text = "ÉQUIPER"
 			actionBtn.BackgroundColor3 = UIUtils.Color.Success
 			actionBtn.TextColor3 = UIUtils.Color.White
 			actionBtn.Font = UIUtils.Font.Title
-			actionBtn.TextSize = 12
+			actionBtn.TextSize = 13
 			actionBtn.Active = true
 			UIUtils.hoverButton(actionBtn)
 			actionBtn.MouseButton1Click:Connect(function()
@@ -170,7 +170,7 @@ local function buildRows(items: { { [string]: any } }, jetons: number)
 			actionBtn.BackgroundColor3 = if canAfford then UIUtils.Color.Navy else UIUtils.Color.Charcoal
 			actionBtn.TextColor3 = if canAfford then UIUtils.Color.White else UIUtils.Color.Muted
 			actionBtn.Font = UIUtils.Font.Title
-			actionBtn.TextSize = 12
+			actionBtn.TextSize = 13
 			actionBtn.Active = canAfford
 			if canAfford then
 				UIUtils.hoverButton(actionBtn)

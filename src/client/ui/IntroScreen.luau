@@ -109,7 +109,7 @@ function IntroScreen.setup()
 	title.Text = ""
 	title.TextColor3 = UIUtils.Color.Ivory
 	title.Font = UIUtils.Font.Title
-	title.TextSize = 24
+	title.TextSize = 26
 	title.TextXAlignment = Enum.TextXAlignment.Center
 	title.TextWrapped = true
 	title.Parent = panel

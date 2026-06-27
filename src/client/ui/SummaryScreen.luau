@@ -95,9 +95,9 @@ function SummaryScreen.setup()
 	truthHeader.Position = UDim2.new(0, 12, 0, 76)
 	truthHeader.BackgroundTransparency = 1
 	truthHeader.Text = "VÉRITÉ OFFICIELLE"
-	truthHeader.TextColor3 = UIUtils.Color.Muted
-	truthHeader.Font = UIUtils.Font.Body
-	truthHeader.TextSize = 10
+	truthHeader.TextColor3 = UIUtils.Color.Gold
+	truthHeader.Font = UIUtils.Font.Title
+	truthHeader.TextSize = 11
 	truthHeader.TextXAlignment = Enum.TextXAlignment.Left
 	truthHeader.Parent = panel
 
@@ -136,9 +136,9 @@ function SummaryScreen.setup()
 	wHeader.Position = UDim2.new(0, 12, 0, 206)
 	wHeader.BackgroundTransparency = 1
 	wHeader.Text = "DÉCLARATION DU TÉMOIN"
-	wHeader.TextColor3 = UIUtils.Color.Muted
-	wHeader.Font = UIUtils.Font.Body
-	wHeader.TextSize = 10
+	wHeader.TextColor3 = UIUtils.Color.Gold
+	wHeader.Font = UIUtils.Font.Title
+	wHeader.TextSize = 11
 	wHeader.TextXAlignment = Enum.TextXAlignment.Left
 	wHeader.Parent = panel
 
@@ -204,7 +204,7 @@ function SummaryScreen.setup()
 	rewLbl.Text = ""
 	rewLbl.TextColor3 = UIUtils.Color.Gold
 	rewLbl.Font = UIUtils.Font.Title
-	rewLbl.TextSize = 15
+	rewLbl.TextSize = 18
 	rewLbl.TextXAlignment = Enum.TextXAlignment.Right
 	rewLbl.Parent = panel
 	rewardLabel = rewLbl

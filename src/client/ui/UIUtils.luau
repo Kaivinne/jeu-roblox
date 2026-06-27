@@ -1,26 +1,72 @@
 --!strict
 -- Constantes visuelles et helpers partagés par tous les modules UI.
--- M3.0 : helpers d'animation centralisés (animateIn / animateOut / hoverButton / pulse).
+-- M3.0 : helpers d'animation centralisés.
+-- M3.1 : design system — TextSize, Spacing, Surface colors.
 
 local TweenService = game:GetService("TweenService")
 
 local UIUtils = {}
 
+-- ─── Palette ──────────────────────────────────────────────────────────────────
+
 UIUtils.Color = {
+	-- Identité
 	Navy = Color3.fromRGB(26, 35, 126),
-	Ivory = Color3.fromRGB(255, 255, 240),
 	Gold = Color3.fromRGB(212, 175, 55),
 	Crimson = Color3.fromRGB(139, 0, 0),
-	Charcoal = Color3.fromRGB(30, 30, 30),
 	Success = Color3.fromRGB(34, 139, 34),
+	-- Texte
+	Ivory = Color3.fromRGB(255, 255, 240), -- texte primaire
+	Muted = Color3.fromRGB(160, 160, 185), -- texte secondaire / métadonnées
 	White = Color3.fromRGB(255, 255, 255),
 	Black = Color3.fromRGB(0, 0, 0),
-	Muted = Color3.fromRGB(160, 160, 185),
+	-- Surfaces (fonds de panneaux)
+	Surface = Color3.fromRGB(14, 14, 26), -- panneau principal
+	SurfaceAlt = Color3.fromRGB(20, 20, 35), -- ligne alternée, champ
+	SurfaceDeep = Color3.fromRGB(10, 10, 22), -- fond assombri (ProfilePanel)
+	-- Utilitaires (conservés pour compatibilité)
+	Charcoal = Color3.fromRGB(30, 30, 30),
 }
+
+-- ─── Police ───────────────────────────────────────────────────────────────────
 
 UIUtils.Font = {
 	Title = Enum.Font.GothamBold,
 	Body = Enum.Font.Gotham,
+}
+
+-- ─── Tailles de texte ─────────────────────────────────────────────────────────
+--
+-- 6 niveaux hiérarchiques. Chaque module doit rester dans cette échelle.
+--
+--   Display (26) — révélation majeure, titre principal d'affaire
+--   H1      (22) — titre de panneau, timer HUD
+--   H2      (18) — bouton CTA principal, titre de boutique
+--   H3      (15) — sous-titre, phase HUD, bouton secondaire
+--   Body    (13) — corps de texte, descriptions
+--   Caption (11) — métadonnées, labels de section, informations tertiaires
+--
+-- Règle : ne pas utiliser de valeur hors de cette table sans justification.
+
+UIUtils.TextSize = {
+	Display = 26,
+	H1 = 22,
+	H2 = 18,
+	H3 = 15,
+	Body = 13,
+	Caption = 11,
+}
+
+-- ─── Espacements ──────────────────────────────────────────────────────────────
+--
+-- Multiples de 4 px. Utiliser pour marges, padding et gaps.
+
+UIUtils.Spacing = {
+	XS = 4,
+	S = 8,
+	M = 12,
+	L = 16,
+	XL = 24,
 }
 
 -- ─── Helpers structurels ──────────────────────────────────────────────────────
@@ -75,7 +121,7 @@ function UIUtils.makeButton(
 	btn.Text = text
 	btn.TextColor3 = UIUtils.Color.White
 	btn.Font = UIUtils.Font.Title
-	btn.TextSize = 16
+	btn.TextSize = UIUtils.TextSize.H3
 	btn.AutoButtonColor = false
 	btn.Parent = parent
 	UIUtils.round(btn, 10)
@@ -93,7 +139,6 @@ function UIUtils.animateIn(frame: GuiObject, dir: string?, dur: number?)
 	local duration = dur or 0.22
 	local OFFSET = 16
 	local target = frame.Position
-	-- Initialise avec la variante "bottom" ; les branches if écrasent si besoin.
 	local start = UDim2.new(target.X.Scale, target.X.Offset, target.Y.Scale, target.Y.Offset + OFFSET)
 	if direction == "top" then
 		start = UDim2.new(target.X.Scale, target.X.Offset, target.Y.Scale, target.Y.Offset - OFFSET)
@@ -152,7 +197,6 @@ function UIUtils.hoverButton(btn: TextButton, amt: number?)
 end
 
 -- Pulse de taille unique et discret — signale un événement important.
--- Utilisé sur les panneaux au moment d'une révélation.
 function UIUtils.pulse(frame: GuiObject)
 	local origin = frame.Size
 	local grown = UDim2.new(origin.X.Scale, origin.X.Offset + 6, origin.Y.Scale, origin.Y.Offset + 6)

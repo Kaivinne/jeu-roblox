@@ -205,7 +205,7 @@ function DeclarationBuilder.setup()
 	title.Text = "VOTRE DÉCLARATION"
 	title.TextColor3 = UIUtils.Color.Gold
 	title.Font = UIUtils.Font.Title
-	title.TextSize = 14
+	title.TextSize = 16
 	title.TextXAlignment = Enum.TextXAlignment.Center
 	title.Parent = panel
 	titleLabel = title
@@ -233,7 +233,7 @@ function DeclarationBuilder.setup()
 	hint.Text = ""
 	hint.TextColor3 = UIUtils.Color.Crimson
 	hint.Font = UIUtils.Font.Body
-	hint.TextSize = 12
+	hint.TextSize = 13
 	hint.TextXAlignment = Enum.TextXAlignment.Center
 	hint.Visible = false
 	hint.Parent = panel
@@ -249,7 +249,7 @@ function DeclarationBuilder.setup()
 	submit.Text = "VALIDER MA DÉCLARATION"
 	submit.TextColor3 = UIUtils.Color.White
 	submit.Font = UIUtils.Font.Title
-	submit.TextSize = 15
+	submit.TextSize = 16
 	submit.AutoButtonColor = false
 	submit.Parent = panel
 	UIUtils.round(submit, 10)
