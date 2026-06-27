@@ -16,11 +16,14 @@ local DeclarationBuilder = require(script.ui.DeclarationBuilder)
 local VerdictScreen = require(script.ui.VerdictScreen)
 local SummaryScreen = require(script.ui.SummaryScreen)
 local ProfilePanel = require(script.ui.ProfilePanel)
+local ShopScreen = require(script.ui.ShopScreen)
 local CameraController = require(script.CameraController)
 local AudioController = require(script.AudioController)
 
 -- Rôle local du joueur (assigné par le serveur pendant Matchmaking)
 local currentRole: string = ""
+-- Jetons courants (mis à jour par ProfileUpdated)
+local currentJetons: number = 0
 
 -- Initialiser tous les modules UI (crée les ScreenGuis une seule fois)
 HUD.setup()
@@ -30,10 +33,15 @@ DeclarationBuilder.setup()
 VerdictScreen.setup()
 SummaryScreen.setup()
 ProfilePanel.setup()
+ShopScreen.setup()
 CameraController.setup()
 AudioController.setup()
 VerdictScreen.setOnVoteCast(function()
 	AudioController.play("Vote")
+end)
+ProfilePanel.setOnShopClick(function()
+	Net.getEvent(RemoteNames.ShopOpen):FireServer({})
+	ShopScreen.open()
 end)
 -- Toast est lazy-initialized à la première notification
 
@@ -254,9 +262,47 @@ Net.onClient(RemoteNames.ProfileUpdated, function(payload)
 	local perspicacite = payload.Perspicacite
 	local rangPrec = payload.RangPrecedent
 	if type(jetons) == "number" and type(rang) == "string" and type(perspicacite) == "number" then
+		currentJetons = jetons
 		ProfilePanel.update(jetons, rang, perspicacite)
 		if type(rangPrec) == "string" then
 			Toast.success("Nouveau rang atteint : " .. rang .. " !")
+		end
+	end
+	-- Appliquer le cadre équipé (envoyé à la connexion et après chaque achat)
+	if type(payload.EquippedFrame) == "string" then
+		ProfilePanel.setFrame(payload.EquippedFrame :: string)
+	else
+		ProfilePanel.setFrame(nil)
+	end
+end)
+
+-- Données boutique reçues du serveur (à l'ouverture ou après achat/équipement)
+Net.onClient(RemoteNames.ShopDataReceived, function(payload)
+	local items = payload.Items
+	if type(items) == "table" then
+		ShopScreen.updateItems(items :: { { [string]: any } }, currentJetons)
+	end
+end)
+
+-- Résultat d'un achat
+Net.onClient(RemoteNames.ShopPurchaseResult, function(payload)
+	local message = payload.Message
+	if type(message) == "string" then
+		if payload.Success == true then
+			Toast.success(message)
+		else
+			Toast.error(message)
+		end
+	end
+end)
+
+-- Résultat d'un équipement
+Net.onClient(RemoteNames.ShopEquipResult, function(payload)
+	if payload.Success == true then
+		local slot = payload.Slot
+		local itemId = payload.ItemId
+		if type(slot) == "string" and slot == "frame" and type(itemId) == "string" then
+			ProfilePanel.setFrame(itemId :: string)
 		end
 	end
 end)

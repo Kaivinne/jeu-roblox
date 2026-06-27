@@ -15,6 +15,8 @@ local rangLabel: TextLabel? = nil
 local _perspBar: Frame? = nil
 local perspFill: Frame? = nil
 local perspLabel: TextLabel? = nil
+local frameStroke: UIStroke? = nil
+local shopClickCallback: (() -> ())? = nil
 
 function ProfilePanel.setup()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
@@ -29,14 +31,18 @@ function ProfilePanel.setup()
 
 	-- Panneau principal (bas-gauche)
 	local panel = Instance.new("Frame")
-	panel.Size = UDim2.new(0, 190, 0, 80)
-	panel.Position = UDim2.new(0, 12, 1, -92)
+	panel.Size = UDim2.new(0, 190, 0, 112)
+	panel.Position = UDim2.new(0, 12, 1, -124)
 	panel.BackgroundColor3 = Color3.fromRGB(10, 10, 22)
 	panel.BackgroundTransparency = 0.25
 	panel.BorderSizePixel = 0
 	panel.Parent = screen
 	UIUtils.round(panel, 10)
-	UIUtils.stroke(panel, UIUtils.Color.Gold, 1)
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = UIUtils.Color.Gold
+	stroke.Thickness = 1
+	stroke.Parent = panel
+	frameStroke = stroke
 
 	-- Jetons
 	local jLabel = Instance.new("TextLabel")
@@ -94,6 +100,26 @@ function ProfilePanel.setup()
 	pLabel.TextXAlignment = Enum.TextXAlignment.Left
 	pLabel.Parent = panel
 	perspLabel = pLabel
+
+	-- Bouton boutique
+	local boutBtn = Instance.new("TextButton")
+	boutBtn.Size = UDim2.new(1, -12, 0, 24)
+	boutBtn.Position = UDim2.new(0, 6, 0, 82)
+	boutBtn.BackgroundColor3 = UIUtils.Color.Navy
+	boutBtn.BackgroundTransparency = 0.3
+	boutBtn.BorderSizePixel = 0
+	boutBtn.Text = "BOUTIQUE"
+	boutBtn.TextColor3 = UIUtils.Color.Gold
+	boutBtn.Font = UIUtils.Font.Title
+	boutBtn.TextSize = 12
+	boutBtn.AutoButtonColor = false
+	boutBtn.Parent = panel
+	UIUtils.round(boutBtn, 6)
+	boutBtn.MouseButton1Click:Connect(function()
+		if shopClickCallback ~= nil then
+			shopClickCallback()
+		end
+	end)
 end
 
 -- Met à jour l'affichage avec les données reçues du serveur
@@ -118,6 +144,29 @@ function ProfilePanel.update(jetons: number, rang: string, perspicacite: number)
 	end
 	if perspLabel then
 		perspLabel.Text = string.format("Perspicacité : %d / 100", perspicacite)
+	end
+end
+
+function ProfilePanel.setOnShopClick(cb: () -> ())
+	shopClickCallback = cb
+end
+
+-- Applique la couleur du cadre équipé sur le contour du panneau.
+-- frameId: "frame_bronze" | "frame_silver" | nil (pas de cadre → or par défaut)
+function ProfilePanel.setFrame(frameId: string?)
+	local s = frameStroke
+	if not s then
+		return
+	end
+	if frameId == "frame_bronze" then
+		s.Color = Color3.fromRGB(184, 115, 51)
+		s.Thickness = 2
+	elseif frameId == "frame_silver" then
+		s.Color = Color3.fromRGB(192, 192, 192)
+		s.Thickness = 2
+	else
+		s.Color = UIUtils.Color.Gold
+		s.Thickness = 1
 	end
 end
 

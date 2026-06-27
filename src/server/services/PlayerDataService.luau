@@ -74,7 +74,23 @@ local PROFILE_DEFAULTS: Types.ProfileData = {
 	Credibilite = 50,
 	Perspicacite = 50,
 	RangActuel = "Novice",
+	OwnedCosmetics = {},
+	EquippedCosmetics = {},
 }
+
+local function newProfile(): Types.ProfileData
+	return {
+		Jetons = 0,
+		PartiesJouees = 0,
+		VerdictsCorrects = 0,
+		VerdictsIncorrects = 0,
+		Credibilite = 50,
+		Perspicacite = 50,
+		RangActuel = "Novice",
+		OwnedCosmetics = {},
+		EquippedCosmetics = {},
+	}
+end
 
 -- Fusionne les données sauvegardées avec les valeurs par défaut.
 -- Les champs inconnus sont ignorés ; les nouveaux champs reçoivent leur valeur par défaut.
@@ -87,6 +103,24 @@ local function reconcile(saved: { [string]: any }): Types.ProfileData
 		local v = saved[key]
 		return if type(v) == "string" then v else default
 	end
+	-- Cosmétiques possédés
+	local owned: { string } = {}
+	if type(saved.OwnedCosmetics) == "table" then
+		for _, rawId in ipairs(saved.OwnedCosmetics :: { any }) do
+			if type(rawId) == "string" then
+				table.insert(owned, rawId)
+			end
+		end
+	end
+	-- Cosmétiques équipés (slot → itemId)
+	local equipped: { [string]: string? } = {}
+	if type(saved.EquippedCosmetics) == "table" then
+		for slot, rawId in pairs(saved.EquippedCosmetics :: { [string]: any }) do
+			if type(slot) == "string" and type(rawId) == "string" then
+				equipped[slot] = rawId
+			end
+		end
+	end
 	return {
 		Jetons = num("Jetons", PROFILE_DEFAULTS.Jetons),
 		PartiesJouees = num("PartiesJouees", PROFILE_DEFAULTS.PartiesJouees),
@@ -95,6 +129,8 @@ local function reconcile(saved: { [string]: any }): Types.ProfileData
 		Credibilite = num("Credibilite", PROFILE_DEFAULTS.Credibilite),
 		Perspicacite = num("Perspicacite", PROFILE_DEFAULTS.Perspicacite),
 		RangActuel = str("RangActuel", PROFILE_DEFAULTS.RangActuel),
+		OwnedCosmetics = owned,
+		EquippedCosmetics = equipped,
 	}
 end
 
@@ -118,6 +154,8 @@ local function saveProfile(userId: number)
 			Credibilite = profile.Credibilite,
 			Perspicacite = profile.Perspicacite,
 			RangActuel = profile.RangActuel,
+			OwnedCosmetics = profile.OwnedCosmetics,
+			EquippedCosmetics = profile.EquippedCosmetics,
 		})
 	end)
 	if ok then
@@ -129,7 +167,7 @@ end
 
 local function loadProfile(userId: number): Types.ProfileData
 	if not playerStore then
-		return table.clone(PROFILE_DEFAULTS)
+		return newProfile()
 	end
 	local key = tostring(userId)
 	local ok, result = pcall(function()
@@ -137,10 +175,10 @@ local function loadProfile(userId: number): Types.ProfileData
 	end)
 	if not ok then
 		warn(string.format("[PlayerDataService] Erreur chargement %d : %s", userId, tostring(result)))
-		return table.clone(PROFILE_DEFAULTS)
+		return newProfile()
 	end
 	if result == nil then
-		return table.clone(PROFILE_DEFAULTS) -- nouveau joueur
+		return newProfile() -- nouveau joueur
 	end
 	return reconcile(result :: { [string]: any })
 end
@@ -211,6 +249,7 @@ local function onPlayerAdded(player: Player)
 			VerdictsCorrects = loaded.VerdictsCorrects,
 			VerdictsIncorrects = loaded.VerdictsIncorrects,
 			RangPrecedent = nil,
+			EquippedFrame = (loaded.EquippedCosmetics :: { [string]: any })["frame"],
 		})
 	end)
 end
@@ -228,7 +267,7 @@ end
 -- Retourne ou crée un profil par défaut (utilisé par RewardService pendant une partie)
 function PlayerDataService.ensureGameProfile(userId: number): Types.ProfileData
 	if not gameProfiles[userId] then
-		gameProfiles[userId] = table.clone(PROFILE_DEFAULTS)
+		gameProfiles[userId] = newProfile()
 	end
 	return gameProfiles[userId]
 end

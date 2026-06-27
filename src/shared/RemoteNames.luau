@@ -22,6 +22,14 @@ RemoteNames.DeclarationSubmitted = "DeclarationSubmitted" -- payload: { Fields: 
 RemoteNames.ReactionSent = "ReactionSent" -- payload: { ReactionType: string }
 RemoteNames.VoteCast = "VoteCast" -- payload: { Vote: string }
 RemoteNames.ObjectionRaised = "ObjectionRaised" -- payload: {}
+RemoteNames.ShopOpen = "ShopOpen" -- payload: {} — demande le catalogue + état possédé/équipé
+RemoteNames.ShopPurchase = "ShopPurchase" -- payload: { ItemId: string }
+RemoteNames.ShopEquip = "ShopEquip" -- payload: { ItemId: string }
+
+-- RemoteEvents : Server → Client (boutique)
+RemoteNames.ShopDataReceived = "ShopDataReceived" -- payload: { Items: { ShopItemPayload } }
+RemoteNames.ShopPurchaseResult = "ShopPurchaseResult" -- payload: { Success: bool, ItemId: string?, Message: string }
+RemoteNames.ShopEquipResult = "ShopEquipResult" -- payload: { Success: bool, ItemId: string, Slot: string }
 
 -- RemoteFunctions : bidirectionnel
 RemoteNames.GetPlayerProfile = "GetPlayerProfile"
@@ -43,6 +51,12 @@ RemoteNames._EventNames = {
 	RemoteNames.ReactionSent,
 	RemoteNames.VoteCast,
 	RemoteNames.ObjectionRaised,
+	RemoteNames.ShopOpen,
+	RemoteNames.ShopPurchase,
+	RemoteNames.ShopEquip,
+	RemoteNames.ShopDataReceived,
+	RemoteNames.ShopPurchaseResult,
+	RemoteNames.ShopEquipResult,
 }
 
 RemoteNames._FunctionNames = {

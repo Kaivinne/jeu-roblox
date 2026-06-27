@@ -10,6 +10,7 @@ local AnalyticsService = require(Server.services.AnalyticsService)
 local PlayerDataService = require(Server.services.PlayerDataService)
 local MatchService = require(Server.services.MatchService)
 local WorldBuilder = require(Server.services.WorldBuilder)
+local CosmeticService = require(Server.services.CosmeticService)
 
 -- 1. Créer tous les remotes avant que le client puisse en avoir besoin
 Net.init()
@@ -25,5 +26,8 @@ PlayerDataService.init()
 
 -- 5. Démarrer la boucle de jeu
 MatchService.init()
+
+-- 6. Boutique de cosmétiques
+CosmeticService.init()
 
 print("[Bootstrap] The Witness Box — serveur prêt")

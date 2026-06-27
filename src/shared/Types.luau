@@ -72,6 +72,8 @@ export type ProfileData = {
 	Credibilite: number,
 	Perspicacite: number,
 	RangActuel: string,
+	OwnedCosmetics: { string },
+	EquippedCosmetics: { [string]: string? },
 }
 
 -- Payload envoyé au client à chaque mise à jour du profil
@@ -83,6 +85,7 @@ export type ProfileUpdatedPayload = {
 	VerdictsCorrects: number,
 	VerdictsIncorrects: number,
 	RangPrecedent: string?, -- non nil si le rang vient de monter
+	EquippedFrame: string?, -- id du cadre équipé, nil si aucun
 }
 
 -- Payload envoyé individuellement à chaque joueur au début de Intro
