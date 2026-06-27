@@ -54,6 +54,7 @@ function SummaryScreen.setup()
 	UIUtils.round(panel, 16)
 	UIUtils.stroke(panel, UIUtils.Color.Gold, 2)
 	UIUtils.responsivePanel(panel, 620)
+	UIUtils.panelGradient(panel)
 	mainPanel = panel
 
 	-- En-tête
@@ -247,6 +248,7 @@ function SummaryScreen.setup()
 	replayBtn.Parent = panel
 	UIUtils.round(replayBtn, 12)
 	UIUtils.stroke(replayBtn, UIUtils.Color.Gold, 1)
+	UIUtils.buttonGradient(replayBtn)
 
 	replayBtn.MouseButton1Click:Connect(function()
 		SummaryScreen.hide()

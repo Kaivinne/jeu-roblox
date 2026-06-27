@@ -58,6 +58,7 @@ function IntroScreen.setup()
 	UIUtils.round(panel, 16)
 	UIUtils.stroke(panel, UIUtils.Color.Gold, 2)
 	UIUtils.responsivePanel(panel, 560)
+	UIUtils.panelGradient(panel)
 	introPanel = panel
 
 	-- Badge dossier en haut

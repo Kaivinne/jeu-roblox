@@ -115,6 +115,7 @@ function VerdictScreen.setup()
 	UIUtils.round(vPanel, 16)
 	UIUtils.stroke(vPanel, UIUtils.Color.Gold, 2)
 	UIUtils.responsivePanel(vPanel, 480)
+	UIUtils.panelGradient(vPanel)
 	votingPanel = vPanel
 
 	local title = Instance.new("TextLabel")
@@ -151,6 +152,7 @@ function VerdictScreen.setup()
 	guilty.AutoButtonColor = false
 	guilty.Parent = vPanel
 	UIUtils.round(guilty, 12)
+	UIUtils.buttonGradient(guilty)
 	guiltyBtn = guilty
 
 	local innocent = Instance.new("TextButton")
@@ -165,6 +167,7 @@ function VerdictScreen.setup()
 	innocent.AutoButtonColor = false
 	innocent.Parent = vPanel
 	UIUtils.round(innocent, 12)
+	UIUtils.buttonGradient(innocent)
 	innocentBtn = innocent
 
 	local confirm = Instance.new("TextLabel")
@@ -201,6 +204,7 @@ function VerdictScreen.setup()
 	UIUtils.round(rPanel, 16)
 	UIUtils.stroke(rPanel, UIUtils.Color.Gold, 2)
 	UIUtils.responsivePanel(rPanel, 520)
+	UIUtils.panelGradient(rPanel)
 	resultPanel = rPanel
 
 	local vResultLabel = Instance.new("TextLabel")

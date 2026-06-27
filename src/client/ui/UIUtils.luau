@@ -2,6 +2,7 @@
 -- Constantes visuelles et helpers partagés par tous les modules UI.
 -- M3.0 : helpers d'animation centralisés.
 -- M3.1 : design system — TextSize, Spacing, Surface colors.
+-- M3.2 : visual surface polish — gradient, button styles, premium panel.
 
 local TweenService = game:GetService("TweenService")
 
@@ -126,6 +127,79 @@ function UIUtils.makeButton(
 	btn.Parent = parent
 	UIUtils.round(btn, 10)
 	return btn
+end
+
+-- ─── Visual surface polish (M3.2) ─────────────────────────────────────────────
+
+-- Applique un gradient discret haut-clair → bas-sombre sur un panneau.
+-- Règle BackgroundColor3 à blanc pour que le gradient contrôle entièrement la couleur.
+-- À appeler APRÈS responsivePanel() (la taille finale doit être fixée).
+-- topColor / bottomColor : couleurs du gradient (defaults : navy clair → navy profond).
+function UIUtils.panelGradient(frame: Frame, topColor: Color3?, bottomColor: Color3?)
+	frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	local g = Instance.new("UIGradient")
+	g.Rotation = 90 -- 90° = clé 0 en haut, clé 1 en bas
+	g.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, topColor or Color3.fromRGB(22, 22, 42)),
+		ColorSequenceKeypoint.new(1, bottomColor or Color3.fromRGB(8, 8, 20)),
+	})
+	g.Parent = frame
+end
+
+-- Gradient de profondeur multiplicatif sur un bouton : haut inchangé, bas assombri.
+-- Fonctionne avec le BackgroundColor3 existant du bouton (ne le remplace pas).
+-- Convient pour texturer des boutons de n'importe quelle couleur sémantique.
+function UIUtils.buttonGradient(btn: GuiObject)
+	local g = Instance.new("UIGradient")
+	g.Rotation = 90
+	g.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)), -- haut : pas de changement
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(148, 148, 148)), -- bas  : ≈ 58 % = assombri
+	})
+	g.Parent = btn
+end
+
+-- Style de panneau complet en une seule ligne : coins + stroke doré + gradient de profondeur.
+-- Ne pas appeler si round() / stroke() / panelGradient() ont déjà été appliqués séparément.
+function UIUtils.premiumPanel(frame: Frame, cornerRadius: number?)
+	UIUtils.round(frame, cornerRadius or 16)
+	UIUtils.stroke(frame, UIUtils.Color.Gold, 2)
+	UIUtils.panelGradient(frame)
+end
+
+-- Bouton CTA principal : fond Navy + stroke doré + gradient.
+-- Usage : création de nouveaux boutons. Ne pas appeler sur des boutons déjà stylisés.
+function UIUtils.buttonPrimary(btn: TextButton, cornerRadius: number?)
+	btn.BackgroundColor3 = UIUtils.Color.Navy
+	btn.TextColor3 = UIUtils.Color.White
+	btn.Font = UIUtils.Font.Title
+	btn.BorderSizePixel = 0
+	btn.AutoButtonColor = false
+	UIUtils.round(btn, cornerRadius or 10)
+	UIUtils.stroke(btn, UIUtils.Color.Gold, 1)
+	UIUtils.buttonGradient(btn)
+end
+
+-- Bouton secondaire : fond Charcoal sombre, texte Ivory, gradient discret.
+function UIUtils.buttonSecondary(btn: TextButton, cornerRadius: number?)
+	btn.BackgroundColor3 = UIUtils.Color.Charcoal
+	btn.TextColor3 = UIUtils.Color.Ivory
+	btn.Font = UIUtils.Font.Title
+	btn.BorderSizePixel = 0
+	btn.AutoButtonColor = false
+	UIUtils.round(btn, cornerRadius or 10)
+	UIUtils.buttonGradient(btn)
+end
+
+-- Bouton danger / action destructrice : fond Crimson, gradient assombri.
+function UIUtils.buttonDanger(btn: TextButton, cornerRadius: number?)
+	btn.BackgroundColor3 = UIUtils.Color.Crimson
+	btn.TextColor3 = UIUtils.Color.White
+	btn.Font = UIUtils.Font.Title
+	btn.BorderSizePixel = 0
+	btn.AutoButtonColor = false
+	UIUtils.round(btn, cornerRadius or 10)
+	UIUtils.buttonGradient(btn)
 end
 
 -- ─── Animation helpers ────────────────────────────────────────────────────────

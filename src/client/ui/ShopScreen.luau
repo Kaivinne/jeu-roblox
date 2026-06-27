@@ -216,6 +216,7 @@ function ShopScreen.setup()
 	UIUtils.round(panel, 16)
 	UIUtils.stroke(panel, UIUtils.Color.Gold, 2)
 	UIUtils.responsivePanel(panel, PANEL_W)
+	UIUtils.panelGradient(panel)
 
 	-- En-tête
 	local header = Instance.new("Frame")

@@ -195,6 +195,7 @@ function DeclarationBuilder.setup()
 	UIUtils.round(panel, 14)
 	UIUtils.stroke(panel, UIUtils.Color.Gold, 2)
 	UIUtils.responsivePanel(panel, 520)
+	UIUtils.panelGradient(panel)
 	_panel = panel
 
 	-- Titre (mis à jour selon le rôle dans loadCase)
@@ -254,6 +255,7 @@ function DeclarationBuilder.setup()
 	submit.Parent = panel
 	UIUtils.round(submit, 10)
 	UIUtils.stroke(submit, UIUtils.Color.Gold, 1)
+	UIUtils.buttonGradient(submit)
 	submitBtn = submit
 
 	UIUtils.hoverButton(submit)
