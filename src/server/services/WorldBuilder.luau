@@ -1,7 +1,9 @@
 --!strict
 -- Construit la salle d'audience Roblox par code au démarrage du serveur.
 -- Toute la géométrie est créée programmatiquement pour la compatibilité Rojo.
--- Milestone 2.3 : sièges nommés par rôle, signalétique, détails blockout.
+-- M2.3 : sièges nommés par rôle, signalétique, détails blockout.
+-- M3.3 : ambiance dramatique — matériaux, éclairage ciblé, vitraux, faisceaux,
+--        particules de poussière, ColorCorrectionEffect, BloomEffect, Atmosphere.
 
 local WorldBuilder = {}
 
@@ -10,26 +12,26 @@ local WorldBuilder = {}
 local C = {
 	Floor = Color3.fromRGB(38, 26, 16),
 	Wall = Color3.fromRGB(20, 24, 40),
-	Ceiling = Color3.fromRGB(14, 14, 22),
+	Ceiling = Color3.fromRGB(12, 12, 20),
 	Furniture = Color3.fromRGB(56, 38, 22),
 	JudgePlatform = Color3.fromRGB(26, 17, 10),
 	JuryPlatform = Color3.fromRGB(28, 32, 46),
 	Gold = Color3.fromRGB(200, 158, 48),
 	Witness = Color3.fromRGB(34, 40, 58),
 	Gallery = Color3.fromRGB(44, 30, 18),
-	LightWarm = Color3.fromRGB(255, 235, 200),
+	LightWarm = Color3.fromRGB(255, 230, 180),
 	Paper = Color3.fromRGB(228, 218, 192),
 	Carpet = Color3.fromRGB(58, 16, 16),
+	WinAmber = Color3.fromRGB(220, 162, 52), -- vitraux dorés
 }
 
 -- ─── Positions par rôle ───────────────────────────────────────────────────────
 
--- Initialisées avec des valeurs de secours, remplacées dans buildCourthouse().
 type SpawnMap = {
 	Lobby: CFrame,
-	JurorSeats: { CFrame }, -- 4 sièges numérotés (Juror1 → Juror4)
-	WitnessStand: CFrame, -- HonestWitness
-	AccusedStand: CFrame, -- Liar (accusé)
+	JurorSeats: { CFrame },
+	WitnessStand: CFrame,
+	AccusedStand: CFrame,
 	ProsecutorSeat: CFrame,
 	DefenseSeat: CFrame,
 }
@@ -48,7 +50,7 @@ local SPAWNS: SpawnMap = {
 	DefenseSeat = CFrame.new(-10, 3, -6),
 }
 
--- ─── Helpers ──────────────────────────────────────────────────────────────────
+-- ─── Helpers structurels ──────────────────────────────────────────────────────
 
 local function mk(parent: Instance, name: string, size: Vector3, cf: CFrame, color: Color3): Part
 	local p = Instance.new("Part")
@@ -73,18 +75,15 @@ local function addLight(p: Part, brightness: number, range: number)
 	light.Parent = p
 end
 
--- Liseré doré horizontal fin posé sur la face avant d'un meuble.
 local function trim(parent: Instance, name: string, w: number, cf: CFrame)
 	mk(parent, name, Vector3.new(w, 0.3, 0.3), cf, C.Gold)
 end
 
--- Feuilles de papier décoratives (non-collidables, très fines).
 local function papers(parent: Instance, name: string, cf: CFrame)
 	local p = mk(parent, name, Vector3.new(3.5, 0.05, 4), cf, C.Paper)
 	p.CanCollide = false
 end
 
--- Panneau de signalétique 3D (BillboardGui toujours lisible).
 local function signage(parent: Instance, name: string, label: string, pos: Vector3)
 	local anchor = mk(parent, name .. "Sign", Vector3.new(0.3, 0.3, 0.3), CFrame.new(pos), C.Gold)
 	anchor.CanCollide = false
@@ -121,10 +120,89 @@ local function signage(parent: Instance, name: string, label: string, pos: Vecto
 	txt.Parent = bg
 end
 
+-- ─── Helpers visuels M3.3 ─────────────────────────────────────────────────────
+
+-- Applique (en détruisant l'ancienne) la liste des instances Lighting existantes du type donné.
+local function clearLightingChildren(className: string)
+	local Lighting = game:GetService("Lighting")
+	for _, child in ipairs(Lighting:GetChildren()) do
+		if child.ClassName == className then
+			child:Destroy()
+		end
+	end
+end
+
+-- Applique un projecteur SpotLight sur une fixture au plafond.
+-- La fixture est une small Part dorée visible depuis la salle.
+local function addSpotFixture(
+	parent: Instance,
+	name: string,
+	pos: Vector3,
+	brightness: number,
+	angle: number,
+	range: number
+): Part
+	local fixture = mk(parent, name .. "Fixture", Vector3.new(1.2, 0.4, 1.2), CFrame.new(pos), C.Gold)
+	fixture.CanCollide = false
+	local spot = Instance.new("SpotLight")
+	spot.Brightness = brightness
+	spot.Angle = angle
+	spot.Range = range
+	spot.Color = C.LightWarm
+	spot.Face = Enum.NormalId.Bottom
+	spot.Parent = fixture
+	return fixture
+end
+
+-- Crée un applique murale (bracket doré + PointLight chaud).
+local function addSconce(
+	parent: Instance,
+	name: string,
+	pos: Vector3,
+	brightness: number,
+	range: number
+)
+	local bracket = mk(parent, name, Vector3.new(0.6, 1.0, 0.4), CFrame.new(pos), C.Gold)
+	bracket.CanCollide = false
+	addLight(bracket, brightness, range)
+end
+
+-- Crée un rectangle Neon semi-transparent simulant un vitrail coloré.
+local function addWindow(
+	parent: Instance,
+	name: string,
+	size: Vector3,
+	cf: CFrame,
+	color: Color3,
+	transparency: number
+): Part
+	local w = mk(parent, name, size, cf, color)
+	w.Material = Enum.Material.Neon
+	w.Transparency = transparency
+	w.CanCollide = false
+	return w
+end
+
+-- Crée une colonne Neon très transparente simulant un faisceau lumineux.
+local function addShaft(
+	parent: Instance,
+	name: string,
+	pos: Vector3,
+	szX: number,
+	szY: number,
+	szZ: number
+): Part
+	local shaft =
+		mk(parent, name, Vector3.new(szX, szY, szZ), CFrame.new(pos), Color3.fromRGB(255, 230, 175))
+	shaft.Material = Enum.Material.Neon
+	shaft.Transparency = 0.93
+	shaft.CanCollide = false
+	return shaft
+end
+
 -- ─── Construction ─────────────────────────────────────────────────────────────
 
 function WorldBuilder.buildCourthouse()
-	-- Nettoyer une construction précédente (hot-reload Studio)
 	local existing = workspace:FindFirstChild("Courthouse")
 	if existing then
 		existing:Destroy()
@@ -140,87 +218,101 @@ function WorldBuilder.buildCourthouse()
 
 	-- ── Structure ────────────────────────────────────────────────────────────
 
-	-- Salle 52 × 24 × 72 studs — Y=0 = surface du sol
-	mk(root, "Floor", Vector3.new(52, 1, 72), CFrame.new(0, -0.5, 0), C.Floor)
-	mk(root, "Ceiling", Vector3.new(52, 1, 72), CFrame.new(0, 23, 0), C.Ceiling)
-	mk(root, "WallBack", Vector3.new(52, 24, 1), CFrame.new(0, 11.5, -36), C.Wall)
-	mk(root, "WallFront", Vector3.new(52, 24, 1), CFrame.new(0, 11.5, 36), C.Wall)
-	mk(root, "WallLeft", Vector3.new(1, 24, 72), CFrame.new(-26, 11.5, 0), C.Wall)
-	mk(root, "WallRight", Vector3.new(1, 24, 72), CFrame.new(26, 11.5, 0), C.Wall)
+	local floor = mk(root, "Floor", Vector3.new(52, 1, 72), CFrame.new(0, -0.5, 0), C.Floor)
+	floor.Material = Enum.Material.Wood
+
+	local ceiling = mk(root, "Ceiling", Vector3.new(52, 1, 72), CFrame.new(0, 23, 0), C.Ceiling)
+	ceiling.Material = Enum.Material.Concrete
+
+	local wallBack = mk(root, "WallBack", Vector3.new(52, 24, 1), CFrame.new(0, 11.5, -36), C.Wall)
+	wallBack.Material = Enum.Material.Concrete
+	local wallFront = mk(root, "WallFront", Vector3.new(52, 24, 1), CFrame.new(0, 11.5, 36), C.Wall)
+	wallFront.Material = Enum.Material.Concrete
+	local wallLeft = mk(root, "WallLeft", Vector3.new(1, 24, 72), CFrame.new(-26, 11.5, 0), C.Wall)
+	wallLeft.Material = Enum.Material.Concrete
+	local wallRight = mk(root, "WallRight", Vector3.new(1, 24, 72), CFrame.new(26, 11.5, 0), C.Wall)
+	wallRight.Material = Enum.Material.Concrete
+
 	-- Liserés dorés bas de mur
 	mk(root, "TrimBack", Vector3.new(52, 1, 0.4), CFrame.new(0, 0.5, -35.6), C.Gold)
 	mk(root, "TrimFront", Vector3.new(52, 1, 0.4), CFrame.new(0, 0.5, 35.6), C.Gold)
 	mk(root, "TrimLeft", Vector3.new(0.4, 1, 72), CFrame.new(-25.6, 0.5, 0), C.Gold)
 	mk(root, "TrimRight", Vector3.new(0.4, 1, 72), CFrame.new(25.6, 0.5, 0), C.Gold)
 
+	-- Liserés dorés haut de mur (M3.3)
+	mk(root, "TrimTopBack", Vector3.new(52, 0.8, 0.4), CFrame.new(0, 22.4, -35.6), C.Gold)
+	mk(root, "TrimTopFront", Vector3.new(52, 0.8, 0.4), CFrame.new(0, 22.4, 35.6), C.Gold)
+	mk(root, "TrimTopLeft", Vector3.new(0.4, 0.8, 72), CFrame.new(-25.6, 22.4, 0), C.Gold)
+	mk(root, "TrimTopRight", Vector3.new(0.4, 0.8, 72), CFrame.new(25.6, 22.4, 0), C.Gold)
+
 	-- ── Tapis central ────────────────────────────────────────────────────────
 
-	-- Allée centrale depuis le juge jusqu'à l'entrée de la galerie
 	local carpet =
 		mk(root, "CentralCarpet", Vector3.new(4, 0.05, 60), CFrame.new(0, 0.05, -4), C.Carpet)
 	carpet.CanCollide = false
 
 	-- ── Estrade du Juge ──────────────────────────────────────────────────────
 
-	-- Plateforme (dessus à Y=2)
-	mk(root, "JudgePlatform", Vector3.new(22, 2, 12), CFrame.new(0, 1, -30), C.JudgePlatform)
+	local judgePlat =
+		mk(root, "JudgePlatform", Vector3.new(22, 2, 12), CFrame.new(0, 1, -30), C.JudgePlatform)
+	judgePlat.Material = Enum.Material.Marble
+
 	trim(root, "JudgePlatformFront", 22, CFrame.new(0, 2.15, -24.1))
-	-- Bureau (dessus à Y=5)
-	mk(root, "JudgeDesk", Vector3.new(18, 3, 5), CFrame.new(0, 3.5, -27.5), C.Furniture)
+
+	local judgeDesk =
+		mk(root, "JudgeDesk", Vector3.new(18, 3, 5), CFrame.new(0, 3.5, -27.5), C.Furniture)
+	judgeDesk.Material = Enum.Material.Wood
+
 	trim(root, "JudgeDeskFront", 18, CFrame.new(0, 5.15, -25))
-	-- Lampe
+
 	local judgeLamp =
 		mk(root, "JudgeLamp", Vector3.new(1.5, 0.5, 1.5), CFrame.new(0, 5.5, -27.5), C.Gold)
-	addLight(judgeLamp, 4, 22)
-	-- Marteau du juge
+	addLight(judgeLamp, 5, 24)
+
 	mk(root, "GavelHandle", Vector3.new(3.5, 0.22, 0.22), CFrame.new(4.2, 5.13, -27.5), C.Furniture)
 	mk(root, "GavelHead", Vector3.new(0.9, 0.9, 0.45), CFrame.new(6, 5.48, -27.5), C.Furniture)
 	mk(root, "GavelBase", Vector3.new(0.9, 0.2, 0.9), CFrame.new(3.5, 5.12, -26.2), C.Gold)
-	-- Notes du juge
 	papers(root, "JudgeNotes", CFrame.new(-3, 5.05, -27) * CFrame.Angles(0, -0.08, 0))
 
-	-- ── Box du Témoin (côté gauche, X négatif) ───────────────────────────────
+	-- ── Box du Témoin ────────────────────────────────────────────────────────
 
-	-- Sol surélevé (dessus à Y=0.5)
 	mk(root, "WitnessFloor", Vector3.new(7, 0.5, 7), CFrame.new(-16, 0.25, -22), C.Witness)
-	-- Trois murs (ouvert côté juge)
 	mk(root, "WitnessWallFront", Vector3.new(7, 5, 1), CFrame.new(-16, 3, -18.5), C.Witness)
 	mk(root, "WitnessWallLeft", Vector3.new(1, 5, 7), CFrame.new(-19.5, 3, -22), C.Witness)
 	mk(root, "WitnessWallRight", Vector3.new(1, 5, 7), CFrame.new(-12.5, 3, -22), C.Witness)
 	trim(root, "WitnessTopFront", 7, CFrame.new(-16, 5.65, -18.5))
-	-- Feuilles sur le pupitre du témoin
 	papers(root, "WitnessNotes", CFrame.new(-15.5, 0.55, -21))
 
-	-- ── Table Accusation (côté droit) ─────────────────────────────────────────
+	-- ── Tables Accusation et Défense ─────────────────────────────────────────
 
-	mk(root, "ProsTable", Vector3.new(12, 2, 5), CFrame.new(10, 1, -9), C.Furniture)
+	local prosTable = mk(root, "ProsTable", Vector3.new(12, 2, 5), CFrame.new(10, 1, -9), C.Furniture)
+	prosTable.Material = Enum.Material.Wood
 	trim(root, "ProsTableFront", 12, CFrame.new(10, 2.15, -6.5))
 	papers(root, "ProsNotes", CFrame.new(10, 2.05, -9) * CFrame.Angles(0, 0.12, 0))
 
-	-- ── Table Défense (côté gauche) ───────────────────────────────────────────
-
-	mk(root, "DefTable", Vector3.new(12, 2, 5), CFrame.new(-10, 1, -9), C.Furniture)
+	local defTable = mk(root, "DefTable", Vector3.new(12, 2, 5), CFrame.new(-10, 1, -9), C.Furniture)
+	defTable.Material = Enum.Material.Wood
 	trim(root, "DefTableFront", 12, CFrame.new(-10, 2.15, -6.5))
 	papers(root, "DefNotes", CFrame.new(-10, 2.05, -9) * CFrame.Angles(0, -0.12, 0))
 
-	-- ── Box des Jurés (contre le mur droit) ──────────────────────────────────
+	-- ── Box des Jurés ─────────────────────────────────────────────────────────
 
-	-- Plateforme (dessus à Y=1)
 	mk(root, "JuryPlatform", Vector3.new(9, 1, 22), CFrame.new(21, 0.5, -14), C.JuryPlatform)
-	-- 3 rangées de bancs (4 sièges répartis dessus : 2 sur banc1, 2 sur banc2)
-	mk(root, "JuryBench1", Vector3.new(8, 2, 3), CFrame.new(21, 2, -21), C.Furniture)
-	mk(root, "JuryBench2", Vector3.new(8, 2, 3), CFrame.new(21, 2, -15), C.Furniture)
-	mk(root, "JuryBench3", Vector3.new(8, 2, 3), CFrame.new(21, 2, -8), C.Furniture)
-	-- Séparation jury / audience
+
+	local juryB1 = mk(root, "JuryBench1", Vector3.new(8, 2, 3), CFrame.new(21, 2, -21), C.Furniture)
+	juryB1.Material = Enum.Material.Wood
+	local juryB2 = mk(root, "JuryBench2", Vector3.new(8, 2, 3), CFrame.new(21, 2, -15), C.Furniture)
+	juryB2.Material = Enum.Material.Wood
+	local juryB3 = mk(root, "JuryBench3", Vector3.new(8, 2, 3), CFrame.new(21, 2, -8), C.Furniture)
+	juryB3.Material = Enum.Material.Wood
+
 	mk(root, "JuryRail", Vector3.new(1, 5, 22), CFrame.new(16.5, 3, -14), C.Furniture)
 	mk(root, "JuryRailTop", Vector3.new(1, 0.3, 22), CFrame.new(16.5, 5.65, -14), C.Gold)
 
 	-- ── Barrière basse cour / galerie ─────────────────────────────────────────
 
-	-- Barrière 2.5 studs (mur gauche → entrée jury)
 	mk(root, "CourtRail", Vector3.new(42.5, 2.5, 1), CFrame.new(-4.75, 1.25, 3), C.Furniture)
 	mk(root, "CourtRailTop", Vector3.new(42.5, 0.3, 1), CFrame.new(-4.75, 2.65, 3), C.Gold)
-	-- Posts dorés le long de la barrière (espacés d'environ 10 studs)
 	local postX = { -24, -14, -4.75, 5, 14 }
 	for i, px in ipairs(postX) do
 		mk(root, "CourtPost" .. tostring(i), Vector3.new(0.5, 3.2, 0.5), CFrame.new(px, 1.6, 3), C.Gold)
@@ -228,10 +320,12 @@ function WorldBuilder.buildCourthouse()
 
 	-- ── Galerie Spectateurs ───────────────────────────────────────────────────
 
-	mk(root, "GalleryBench1", Vector3.new(48, 2, 5), CFrame.new(0, 1, 13), C.Gallery)
-	mk(root, "GalleryBench2", Vector3.new(48, 2, 5), CFrame.new(0, 1, 23), C.Gallery)
+	local galB1 = mk(root, "GalleryBench1", Vector3.new(48, 2, 5), CFrame.new(0, 1, 13), C.Gallery)
+	galB1.Material = Enum.Material.Wood
+	local galB2 = mk(root, "GalleryBench2", Vector3.new(48, 2, 5), CFrame.new(0, 1, 23), C.Gallery)
+	galB2.Material = Enum.Material.Wood
 
-	-- ── Éclairage plafond ─────────────────────────────────────────────────────
+	-- ── Éclairage plafond (réduit — les spots dominent) ──────────────────────
 
 	local lightPos = {
 		Vector3.new(-12, 22.5, -18),
@@ -242,7 +336,7 @@ function WorldBuilder.buildCourthouse()
 	for i, pos in ipairs(lightPos) do
 		local lamp =
 			mk(root, "CeilingLight" .. tostring(i), Vector3.new(2, 0.5, 2), CFrame.new(pos), C.Gold)
-		addLight(lamp, 2.5, 32)
+		addLight(lamp, 1.8, 30)
 	end
 
 	-- ── Signalétique 3D ───────────────────────────────────────────────────────
@@ -252,6 +346,87 @@ function WorldBuilder.buildCourthouse()
 	signage(root, "Witness", "TÉMOIN", Vector3.new(-16, 8.5, -22))
 	signage(root, "Prosecutor", "ACCUSATION", Vector3.new(10, 5.5, -9))
 	signage(root, "Defense", "DÉFENSE", Vector3.new(-10, 5.5, -9))
+
+	-- ── Détails architecturaux M3.3 ───────────────────────────────────────────
+
+	-- Arche d'honneur encadrant l'estrade du Juge (visible depuis galerie)
+	mk(root, "JudgeArchLeft", Vector3.new(0.5, 15, 0.5), CFrame.new(-9, 7.5, -25), C.Gold)
+	mk(root, "JudgeArchRight", Vector3.new(0.5, 15, 0.5), CFrame.new(9, 7.5, -25), C.Gold)
+	mk(root, "JudgeArchTop", Vector3.new(18.5, 0.5, 0.5), CFrame.new(0, 15, -25), C.Gold)
+
+	-- Pilastres dorés sur le mur arrière (encadrent les vitraux)
+	local pilasterXs = { -19, -7, 7, 19 }
+	for i, px in ipairs(pilasterXs) do
+		mk(
+			root,
+			"BackPilaster" .. tostring(i),
+			Vector3.new(1.0, 20, 0.5),
+			CFrame.new(px, 10, -35.7),
+			C.Gold
+		)
+	end
+
+	-- Vitraux dorés sur le mur arrière (entre les pilastres)
+	-- Très légèrement opaques : chaleur ambrée sans éblouir
+	addWindow(root, "WinLeft", Vector3.new(5, 10, 0.15), CFrame.new(-13, 14, -35.6), C.WinAmber, 0.50)
+	addWindow(
+		root,
+		"WinCenter",
+		Vector3.new(7, 13, 0.15),
+		CFrame.new(0, 15.5, -35.6),
+		C.WinAmber,
+		0.44
+	)
+	addWindow(root, "WinRight", Vector3.new(5, 10, 0.15), CFrame.new(13, 14, -35.6), C.WinAmber, 0.50)
+
+	-- Faisceaux lumineux depuis les vitraux vers l'estrade
+	-- Neon quasi-invisible — suggestion de lumière, pas d'effet lourd
+	addShaft(root, "ShaftLeft", Vector3.new(-10, 9, -30), 2.0, 16, 2.0)
+	addShaft(root, "ShaftCenter", Vector3.new(0, 9.5, -31), 2.5, 19, 2.5)
+	addShaft(root, "ShaftRight", Vector3.new(10, 9, -30), 2.0, 16, 2.0)
+
+	-- Appliques murales — mur gauche (X=-25.5)
+	addSconce(root, "SconceL1", Vector3.new(-25.5, 9, -28), 2.5, 18)
+	addSconce(root, "SconceL2", Vector3.new(-25.5, 9, -16), 2.0, 16)
+	addSconce(root, "SconceL3", Vector3.new(-25.5, 9, -4), 2.0, 16)
+	-- Appliques murales — mur droit (X=25.5)
+	addSconce(root, "SconceR1", Vector3.new(25.5, 9, -28), 2.5, 18)
+	addSconce(root, "SconceR2", Vector3.new(25.5, 9, -16), 2.0, 16)
+	addSconce(root, "SconceR3", Vector3.new(25.5, 9, -4), 2.0, 16)
+
+	-- Projecteur sur l'estrade du Juge (spot centré haut, éclairage dramatique)
+	addSpotFixture(root, "JudgeSpot", Vector3.new(0, 22.5, -27.5), 7, 38, 28)
+
+	-- Projecteur sur le box du Témoin (légèrement plus lumineux que la salle)
+	addSpotFixture(root, "WitnessSpot", Vector3.new(-16, 22.5, -22), 4, 46, 22)
+
+	-- ── Poussière flottante (particules légères) ──────────────────────────────
+
+	local dustPart =
+		mk(root, "DustSource", Vector3.new(0.5, 0.5, 0.5), CFrame.new(0, 16, -15), C.Ceiling)
+	dustPart.CanCollide = false
+	dustPart.Transparency = 1.0
+
+	local dust = Instance.new("ParticleEmitter")
+	dust.Rate = 4
+	dust.Lifetime = NumberRange.new(14, 22)
+	dust.Speed = NumberRange.new(0.04, 0.14)
+	dust.SpreadAngle = Vector2.new(180, 180)
+	dust.Rotation = NumberRange.new(0, 360)
+	dust.RotSpeed = NumberRange.new(-4, 4)
+	dust.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.06),
+		NumberSequenceKeypoint.new(0.6, 0.05),
+		NumberSequenceKeypoint.new(1, 0.02),
+	})
+	dust.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.88),
+		NumberSequenceKeypoint.new(0.5, 0.82),
+		NumberSequenceKeypoint.new(1, 1.0),
+	})
+	dust.Color = ColorSequence.new(Color3.fromRGB(228, 215, 190))
+	dust.LightInfluence = 0.9
+	dust.Parent = dustPart
 
 	-- ── SpawnLocation Lobby ───────────────────────────────────────────────────
 
@@ -273,40 +448,74 @@ function WorldBuilder.buildCourthouse()
 
 	SPAWNS.Lobby = CFrame.lookAt(Vector3.new(0, 3, 17), judgeDir)
 
-	-- 8 sièges jury : 3 sur banc3 (avant) + 3 sur banc2 (milieu) + 2 sur banc1 (fond)
-	-- Y=5 : root du personnage au-dessus de la plateforme (dessus Y=1) + banc (dessus Y=3)
 	SPAWNS.JurorSeats = {
-		CFrame.lookAt(Vector3.new(18, 5, -9), courtCenter), -- banc3 gauche   (JurorSeat1)
-		CFrame.lookAt(Vector3.new(21, 5, -9), courtCenter), -- banc3 centre   (JurorSeat2)
-		CFrame.lookAt(Vector3.new(24, 5, -9), courtCenter), -- banc3 droit    (JurorSeat3)
-		CFrame.lookAt(Vector3.new(18, 5, -16), courtCenter), -- banc2 gauche  (JurorSeat4)
-		CFrame.lookAt(Vector3.new(21, 5, -16), courtCenter), -- banc2 centre  (JurorSeat5)
-		CFrame.lookAt(Vector3.new(24, 5, -16), courtCenter), -- banc2 droit   (JurorSeat6)
-		CFrame.lookAt(Vector3.new(19, 5, -22), courtCenter), -- banc1 gauche  (JurorSeat7)
-		CFrame.lookAt(Vector3.new(23, 5, -22), courtCenter), -- banc1 droit   (JurorSeat8)
+		CFrame.lookAt(Vector3.new(18, 5, -9), courtCenter),
+		CFrame.lookAt(Vector3.new(21, 5, -9), courtCenter),
+		CFrame.lookAt(Vector3.new(24, 5, -9), courtCenter),
+		CFrame.lookAt(Vector3.new(18, 5, -16), courtCenter),
+		CFrame.lookAt(Vector3.new(21, 5, -16), courtCenter),
+		CFrame.lookAt(Vector3.new(24, 5, -16), courtCenter),
+		CFrame.lookAt(Vector3.new(19, 5, -22), courtCenter),
+		CFrame.lookAt(Vector3.new(23, 5, -22), courtCenter),
 	}
 	SPAWNS.WitnessStand = CFrame.lookAt(Vector3.new(-16, 3, -20), Vector3.new(-4, 3, -13))
 	SPAWNS.AccusedStand = CFrame.lookAt(Vector3.new(-15, 3, -23), Vector3.new(-4, 3, -13))
 	SPAWNS.ProsecutorSeat = CFrame.lookAt(Vector3.new(10, 3, -6), judgeDir)
 	SPAWNS.DefenseSeat = CFrame.lookAt(Vector3.new(-10, 3, -6), judgeDir)
 
-	-- ── Éclairage global ──────────────────────────────────────────────────────
+	-- ── Éclairage global M3.3 ─────────────────────────────────────────────────
 
 	local Lighting = game:GetService("Lighting")
-	Lighting.Ambient = Color3.fromRGB(28, 28, 46)
-	Lighting.OutdoorAmbient = Color3.fromRGB(18, 18, 32)
-	Lighting.Brightness = 0.5
-	Lighting.ClockTime = 12
+
+	-- Ambiance très sombre : les spots et appliques dominent entièrement
+	Lighting.Ambient = Color3.fromRGB(14, 14, 28)
+	Lighting.OutdoorAmbient = Color3.fromRGB(8, 8, 18)
+	Lighting.Brightness = 0.22
+	Lighting.ClockTime = 1 -- nuit (pas d'influence du soleil à l'intérieur)
+	Lighting.GeographicLatitude = 48 -- Paris (cohérent avec ambiance tribunal FR)
+
+	-- Supprime les effets précédents avant de les recréer (hot-reload Studio)
+	clearLightingChildren("Atmosphere")
+	clearLightingChildren("ColorCorrectionEffect")
+	clearLightingChildren("BloomEffect")
+
+	-- Atmosphère légère : poussière en suspension dans l'air (très discret)
+	local atm = Instance.new("Atmosphere")
+	atm.Density = 0.12
+	atm.Offset = 0.20
+	atm.Color = Color3.fromRGB(178, 150, 110)
+	atm.Decay = Color3.fromRGB(55, 42, 30)
+	atm.Glare = 0
+	atm.Haze = 1.2
+	atm.Parent = Lighting
+
+	-- Correction colorimétrique : légère désaturation + contraste dramatique
+	-- TintColor légèrement chaud pour renforcer l'ambiance tribunal candlelight
+	local cc = Instance.new("ColorCorrectionEffect")
+	cc.Brightness = -0.04
+	cc.Contrast = 0.18
+	cc.Saturation = -0.12
+	cc.TintColor = Color3.fromRGB(255, 246, 232)
+	cc.Parent = Lighting
+
+	-- Bloom discret : les éléments Neon (vitraux, lampes) ont un léger halo doré
+	-- Threshold élevé : seules les surfaces très brillantes blooment
+	local bloom = Instance.new("BloomEffect")
+	bloom.Intensity = 0.30
+	bloom.Size = 18
+	bloom.Threshold = 0.92
+	bloom.Parent = Lighting
 
 	print(
-		string.format("[WorldBuilder] Salle construite (%d éléments + LobbySpawn)", #root:GetChildren())
+		string.format(
+			"[WorldBuilder] Salle construite — %d éléments + LobbySpawn",
+			#root:GetChildren()
+		)
 	)
 end
 
 -- ─── API publique ─────────────────────────────────────────────────────────────
 
--- Retourne la CFrame de téléportation pour un rôle donné.
--- jurorIndex (1–4) détermine quel siège de jury est attribué.
 function WorldBuilder.getRoleSpawnCFrame(role: string, jurorIndex: number?): CFrame
 	if role == "HonestWitness" then
 		return SPAWNS.WitnessStand
@@ -324,7 +533,6 @@ function WorldBuilder.getRoleSpawnCFrame(role: string, jurorIndex: number?): CFr
 	return SPAWNS.Lobby
 end
 
--- Retourne la CFrame de la zone d'attente (galerie spectateurs).
 function WorldBuilder.getLobbySpawnCFrame(): CFrame
 	return SPAWNS.Lobby
 end
