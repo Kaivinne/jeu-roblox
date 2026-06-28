@@ -247,6 +247,15 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 	state.PhaseStartedAt = tick()
 
 	local duration = Config.PhaseDuration[newPhase] or 30
+	-- Durée de délibération adaptée au format pour éviter l'attente passive
+	if newPhase == "Deliberation" then
+		if state.Format == "Solo" then
+			duration = 20
+		elseif state.Format == "Duel" then
+			duration = 25
+			-- Mini et Full conservent la durée Config (45s)
+		end
+	end
 	local playerCount = #Players:GetPlayers()
 
 	Net.broadcast(RemoteNames.GamePhaseChanged, {

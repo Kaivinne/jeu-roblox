@@ -20,13 +20,20 @@ local ShopScreen = require(script.ui.ShopScreen)
 local VerdictSequence = require(script.ui.VerdictSequence)
 local WelcomeScreen = require(script.ui.WelcomeScreen)
 local OnboardingScreen = require(script.ui.OnboardingScreen)
+local DeliberationScreen = require(script.ui.DeliberationScreen)
 local CameraController = require(script.CameraController)
 local AudioController = require(script.AudioController)
 
 -- Rôle local du joueur (assigné par le serveur pendant Matchmaking)
 local currentRole: string = ""
+-- Format de la partie courante (mis à jour par GamePhaseChanged)
+local currentFormat: string = ""
 -- Jetons courants (mis à jour par ProfileUpdated)
 local currentJetons: number = 0
+-- Contexte de délibération (accumulé pendant Intro + Testimony)
+local storedAccusation: string = ""
+local lastDeclarationText: string = ""
+local recentReactions: { string } = {}
 
 -- Initialiser tous les modules UI (crée les ScreenGuis une seule fois)
 HUD.setup()
@@ -59,6 +66,7 @@ local function hideAllPanels()
 	DeclarationBuilder.hide()
 	VerdictScreen.hide()
 	SummaryScreen.hide()
+	DeliberationScreen.hide()
 end
 
 -- Détermine quel panneau montrer selon la phase et le rôle local
@@ -83,18 +91,30 @@ local function applyPhaseUI(phase: string)
 			-- Les non-jurés attendent le résultat passivement
 			Toast.info("Phase de verdict en cours — attendez le résultat des jurés.")
 		end
+	elseif phase == "Deliberation" then
+		DeliberationScreen.show(
+			currentFormat,
+			currentRole,
+			lastDeclarationText,
+			storedAccusation,
+			recentReactions
+		)
 	elseif phase == "Lobby" then
 		Toast.info("En attente de joueurs...")
 	elseif phase == "Matchmaking" then
 		Toast.info("Préparation de la partie...")
-		-- Réinitialiser le rôle en attente du prochain RoleAssigned
+		-- Réinitialiser l'état du match en attente du prochain cycle
 		currentRole = ""
+		lastDeclarationText = ""
+		storedAccusation = ""
+		recentReactions = {}
 	end
 end
 
 -- Changement de phase (server → client)
 Net.onClient(RemoteNames.GamePhaseChanged, function(payload)
 	local typed = payload :: Types.PhaseChangedPayload
+	currentFormat = typed.Format
 	HUD.setPhase(typed.Phase, typed.Duration)
 	HUD.setInfo(typed.Format, typed.PlayerCount)
 	applyPhaseUI(typed.Phase)
@@ -128,6 +148,8 @@ end)
 -- Données de l'affaire reçues individuellement au début de Intro
 Net.onClient(RemoteNames.CaseIntroReceived, function(payload)
 	local typed = payload :: Types.CaseIntroPayload
+	-- Stocker pour la phase de délibération
+	storedAccusation = typed.Accusation
 
 	local isWitness = currentRole == "HonestWitness" or currentRole == "Liar"
 	if isWitness then
@@ -179,13 +201,15 @@ Net.onClient(RemoteNames.DeclarationBroadcast, function(payload)
 	local fieldValues = payload.FieldValues
 	if type(fromName) == "string" and type(fieldValues) == "table" then
 		local values = fieldValues :: { string }
+		-- Stocker la déclaration pour la phase de délibération
+		lastDeclarationText = table.concat(values, " · ")
 		if payload.IsNpc == true then
 			Toast.info("Le témoin a déposé sa déclaration.")
 			task.delay(1, function()
-				Toast.info(fromName .. " a dit : " .. table.concat(values, " · "))
+				Toast.info(fromName .. " a dit : " .. lastDeclarationText)
 			end)
 		else
-			Toast.info(fromName .. " : " .. table.concat(values, " · "))
+			Toast.info(fromName .. " : " .. lastDeclarationText)
 		end
 	end
 end)
@@ -204,6 +228,11 @@ end)
 Net.onClient(RemoteNames.ReactionBroadcast, function(payload)
 	local reactionType = payload.ReactionType
 	if type(reactionType) == "string" then
+		-- Conserver les 3 dernières réactions pour la délibération en Duel
+		table.insert(recentReactions, reactionType)
+		if #recentReactions > 3 then
+			table.remove(recentReactions, 1)
+		end
 		Toast.info("Réaction : " .. reactionType)
 	end
 end)
