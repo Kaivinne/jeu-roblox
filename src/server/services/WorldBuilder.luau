@@ -339,6 +339,11 @@ function WorldBuilder.buildCourthouse()
 		addLight(lamp, 1.8, 30)
 	end
 
+	-- Plaffonnier galerie : évite que le banc arrière et le lobby soient quasi-noirs
+	-- (banc2 à Z=23 et lobby à Z=17 hors portée des lumières de la salle)
+	local galLamp = mk(root, "CeilingLight5", Vector3.new(2, 0.5, 2), CFrame.new(0, 22.5, 18), C.Gold)
+	addLight(galLamp, 1.5, 32)
+
 	-- ── Signalétique 3D ───────────────────────────────────────────────────────
 
 	signage(root, "Judge", "JUGE", Vector3.new(0, 8, -25))
