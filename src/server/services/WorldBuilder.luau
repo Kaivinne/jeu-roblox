@@ -4,6 +4,7 @@
 -- M2.3 : sièges nommés par rôle, signalétique, détails blockout.
 -- M3.3 : ambiance dramatique — matériaux, éclairage ciblé, vitraux, faisceaux,
 --        particules de poussière, ColorCorrectionEffect, BloomEffect, Atmosphere.
+-- M3.6 : zone lobby — pupitre d'accueil, signalétique étendue, éclairage d'entrée.
 
 local WorldBuilder = {}
 
@@ -116,6 +117,43 @@ local function signage(parent: Instance, name: string, label: string, pos: Vecto
 	txt.TextColor3 = C.Gold
 	txt.Font = Enum.Font.GothamBold
 	txt.TextSize = 14
+	txt.TextXAlignment = Enum.TextXAlignment.Center
+	txt.Parent = bg
+end
+
+-- Variante large de signage() pour le lobby : billboard plus large, TextScaled.
+local function lobbySignage(parent: Instance, name: string, label: string, pos: Vector3)
+	local anchor = mk(parent, name .. "Sign", Vector3.new(0.3, 0.3, 0.3), CFrame.new(pos), C.Gold)
+	anchor.CanCollide = false
+
+	local bgui = Instance.new("BillboardGui")
+	bgui.Name = "LobbySignBillboard"
+	bgui.Size = UDim2.new(0, 200, 0, 44)
+	bgui.StudsOffset = Vector3.new(0, 1, 0)
+	bgui.AlwaysOnTop = false
+	bgui.LightInfluence = 0
+	bgui.Parent = anchor
+
+	local bg = Instance.new("Frame")
+	bg.Size = UDim2.new(1, 0, 1, 0)
+	bg.BackgroundColor3 = Color3.fromRGB(10, 10, 22)
+	bg.BackgroundTransparency = 0.10
+	bg.BorderSizePixel = 0
+	bg.Parent = bgui
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = C.Gold
+	stroke.Thickness = 1.5
+	stroke.Parent = bg
+
+	local txt = Instance.new("TextLabel")
+	txt.Size = UDim2.new(1, -8, 1, 0)
+	txt.Position = UDim2.new(0, 4, 0, 0)
+	txt.BackgroundTransparency = 1
+	txt.Text = label
+	txt.TextColor3 = C.Gold
+	txt.Font = Enum.Font.GothamBold
+	txt.TextScaled = true
 	txt.TextXAlignment = Enum.TextXAlignment.Center
 	txt.Parent = bg
 end
@@ -445,6 +483,77 @@ function WorldBuilder.buildCourthouse()
 	spawnLoc.Neutral = true
 	spawnLoc.Duration = 0
 	spawnLoc.Parent = workspace
+
+	-- ── Zone Lobby M3.6 ───────────────────────────────────────────────────────
+
+	-- Pupitre d'accueil face au mur d'entrée, visible en se retournant depuis spawn
+	local podium = mk(root, "LobbyPodium", Vector3.new(6, 3, 4), CFrame.new(0, 1.5, 31), C.Furniture)
+	podium.Material = Enum.Material.Wood
+	trim(root, "LobbyPodiumTrim", 6, CFrame.new(0, 3.15, 31))
+
+	-- Panneau d'accueil au-dessus du pupitre (BillboardGui toujours face caméra)
+	do
+		local anchor =
+			mk(root, "LobbyWelcomeAnchor", Vector3.new(0.3, 0.3, 0.3), CFrame.new(0, 5.5, 31), C.Gold)
+		anchor.CanCollide = false
+
+		local bgui = Instance.new("BillboardGui")
+		bgui.Name = "WelcomeBillboard"
+		bgui.Size = UDim2.new(0, 260, 0, 88)
+		bgui.StudsOffset = Vector3.new(0, 1, 0)
+		bgui.AlwaysOnTop = false
+		bgui.LightInfluence = 0
+		bgui.Parent = anchor
+
+		local bg = Instance.new("Frame")
+		bg.Size = UDim2.new(1, 0, 1, 0)
+		bg.BackgroundColor3 = Color3.fromRGB(8, 8, 20)
+		bg.BackgroundTransparency = 0.05
+		bg.BorderSizePixel = 0
+		bg.Parent = bgui
+
+		local bStroke = Instance.new("UIStroke")
+		bStroke.Color = C.Gold
+		bStroke.Thickness = 2
+		bStroke.Parent = bg
+
+		local titleLbl = Instance.new("TextLabel")
+		titleLbl.Size = UDim2.new(1, -8, 0, 44)
+		titleLbl.Position = UDim2.new(0, 4, 0, 6)
+		titleLbl.BackgroundTransparency = 1
+		titleLbl.Text = "THE WITNESS BOX"
+		titleLbl.TextColor3 = C.Gold
+		titleLbl.Font = Enum.Font.GothamBold
+		titleLbl.TextSize = 20
+		titleLbl.TextXAlignment = Enum.TextXAlignment.Center
+		titleLbl.Parent = bg
+
+		local subLbl = Instance.new("TextLabel")
+		subLbl.Size = UDim2.new(1, -8, 0, 28)
+		subLbl.Position = UDim2.new(0, 4, 0, 54)
+		subLbl.BackgroundTransparency = 1
+		subLbl.Text = "Le procès commence bientôt…"
+		subLbl.TextColor3 = Color3.fromRGB(175, 150, 100)
+		subLbl.Font = Enum.Font.Gotham
+		subLbl.TextSize = 13
+		subLbl.TextXAlignment = Enum.TextXAlignment.Center
+		subLbl.Parent = bg
+	end
+
+	-- Spot d'accueil au plafond au-dessus du pupitre
+	addSpotFixture(root, "LobbySpot", Vector3.new(0, 22.5, 31), 3, 40, 22)
+
+	-- Poteaux et cordon encadrant la zone de spawn
+	mk(root, "LobbyPostL", Vector3.new(0.4, 3, 0.4), CFrame.new(-5, 1.5, 17), C.Gold)
+	mk(root, "LobbyPostR", Vector3.new(0.4, 3, 0.4), CFrame.new(5, 1.5, 17), C.Gold)
+	local lobbyRope = mk(root, "LobbyRope", Vector3.new(10, 0.18, 0.18), CFrame.new(0, 3, 17), C.Gold)
+	lobbyRope.CanCollide = false
+
+	-- Signalétique directionnelle lobby
+	lobbySignage(root, "LobbyAudience", "SALLE D'AUDIENCE", Vector3.new(0, 5.5, 5))
+	lobbySignage(root, "LobbyGallery", "GALERIE", Vector3.new(-20, 4.5, 22))
+	lobbySignage(root, "LobbyShop", "BOUTIQUE", Vector3.new(20, 4.5, 28))
+	lobbySignage(root, "LobbyNextCase", "PROCHAINE AFFAIRE", Vector3.new(-12, 4.5, 28))
 
 	-- ── Positions de téléportation ────────────────────────────────────────────
 
