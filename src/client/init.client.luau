@@ -19,6 +19,7 @@ local ProfilePanel = require(script.ui.ProfilePanel)
 local ShopScreen = require(script.ui.ShopScreen)
 local VerdictSequence = require(script.ui.VerdictSequence)
 local WelcomeScreen = require(script.ui.WelcomeScreen)
+local OnboardingScreen = require(script.ui.OnboardingScreen)
 local CameraController = require(script.CameraController)
 local AudioController = require(script.AudioController)
 
@@ -45,6 +46,9 @@ end)
 ProfilePanel.setOnShopClick(function()
 	Net.getEvent(RemoteNames.ShopOpen):FireServer({})
 	ShopScreen.open()
+end)
+ProfilePanel.setOnHelpClick(function()
+	OnboardingScreen.replay()
 end)
 -- Toast est lazy-initialized à la première notification
 
@@ -315,6 +319,16 @@ Net.onClient(RemoteNames.ShopEquipResult, function(payload)
 		if type(slot) == "string" and slot == "frame" and type(itemId) == "string" then
 			ProfilePanel.setFrame(itemId :: string)
 		end
+	end
+end)
+
+-- Onboarding first-time : affiché si le serveur indique HasSeen = false
+Net.onClient(RemoteNames.OnboardingStatus, function(payload)
+	local hasSeen = payload.HasSeen
+	if type(hasSeen) == "boolean" and not hasSeen then
+		OnboardingScreen.show(function()
+			Net.getEvent(RemoteNames.OnboardingCompleted):FireServer({})
+		end)
 	end
 end)
 

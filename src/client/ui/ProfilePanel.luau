@@ -19,6 +19,7 @@ local perspFill: Frame? = nil
 local perspLabel: TextLabel? = nil
 local frameStroke: UIStroke? = nil
 local shopClickCallback: (() -> ())? = nil
+local helpClickCallback: (() -> ())? = nil
 
 function ProfilePanel.setup()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
@@ -106,7 +107,7 @@ function ProfilePanel.setup()
 
 	-- Bouton boutique
 	local boutBtn = Instance.new("TextButton")
-	boutBtn.Size = UDim2.new(1, -12, 0, 24)
+	boutBtn.Size = UDim2.new(0, 128, 0, 24)
 	boutBtn.Position = UDim2.new(0, 6, 0, 82)
 	boutBtn.BackgroundColor3 = UIUtils.Color.Navy
 	boutBtn.BackgroundTransparency = 0.3
@@ -124,6 +125,27 @@ function ProfilePanel.setup()
 		end
 	end)
 	UIUtils.hoverButton(boutBtn, 0.15)
+
+	-- Bouton Aide (à droite de BOUTIQUE)
+	local helpBtn = Instance.new("TextButton")
+	helpBtn.Size = UDim2.new(0, 44, 0, 24)
+	helpBtn.Position = UDim2.new(0, 138, 0, 82)
+	helpBtn.BackgroundColor3 = UIUtils.Color.SurfaceAlt
+	helpBtn.BackgroundTransparency = 0.1
+	helpBtn.BorderSizePixel = 0
+	helpBtn.Text = "AIDE"
+	helpBtn.TextColor3 = UIUtils.Color.Muted
+	helpBtn.Font = UIUtils.Font.Body
+	helpBtn.TextSize = 11
+	helpBtn.AutoButtonColor = false
+	helpBtn.Parent = panel
+	UIUtils.round(helpBtn, 6)
+	helpBtn.MouseButton1Click:Connect(function()
+		if helpClickCallback ~= nil then
+			helpClickCallback()
+		end
+	end)
+	UIUtils.hoverButton(helpBtn, 0.12)
 
 	-- Slide depuis la gauche au spawn
 	UIUtils.animateIn(panel, "left", 0.32)
@@ -160,6 +182,10 @@ end
 
 function ProfilePanel.setOnShopClick(cb: () -> ())
 	shopClickCallback = cb
+end
+
+function ProfilePanel.setOnHelpClick(cb: () -> ())
+	helpClickCallback = cb
 end
 
 -- Applique la couleur du cadre équipé sur le contour du panneau.

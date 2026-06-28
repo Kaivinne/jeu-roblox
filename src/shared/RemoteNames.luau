@@ -31,6 +31,10 @@ RemoteNames.ShopDataReceived = "ShopDataReceived" -- payload: { Items: { ShopIte
 RemoteNames.ShopPurchaseResult = "ShopPurchaseResult" -- payload: { Success: bool, ItemId: string?, Message: string }
 RemoteNames.ShopEquipResult = "ShopEquipResult" -- payload: { Success: bool, ItemId: string, Slot: string }
 
+-- RemoteEvents : onboarding first-time
+RemoteNames.OnboardingStatus = "OnboardingStatus" -- Server → Client : { HasSeen: boolean }
+RemoteNames.OnboardingCompleted = "OnboardingCompleted" -- Client → Server : {} (flag HasSeenOnboarding = true)
+
 -- RemoteFunctions : bidirectionnel
 RemoteNames.GetPlayerProfile = "GetPlayerProfile"
 RemoteNames.GetCurrentMatchState = "GetCurrentMatchState"
@@ -57,6 +61,8 @@ RemoteNames._EventNames = {
 	RemoteNames.ShopDataReceived,
 	RemoteNames.ShopPurchaseResult,
 	RemoteNames.ShopEquipResult,
+	RemoteNames.OnboardingStatus,
+	RemoteNames.OnboardingCompleted,
 }
 
 RemoteNames._FunctionNames = {

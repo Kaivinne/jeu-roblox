@@ -76,6 +76,7 @@ local PROFILE_DEFAULTS: Types.ProfileData = {
 	RangActuel = "Novice",
 	OwnedCosmetics = {},
 	EquippedCosmetics = {},
+	HasSeenOnboarding = false,
 }
 
 local function newProfile(): Types.ProfileData
@@ -89,6 +90,7 @@ local function newProfile(): Types.ProfileData
 		RangActuel = "Novice",
 		OwnedCosmetics = {},
 		EquippedCosmetics = {},
+		HasSeenOnboarding = false,
 	}
 end
 
@@ -102,6 +104,10 @@ local function reconcile(saved: { [string]: any }): Types.ProfileData
 	local function str(key: string, default: string): string
 		local v = saved[key]
 		return if type(v) == "string" then v else default
+	end
+	local function bool(key: string, default: boolean): boolean
+		local v = saved[key]
+		return if type(v) == "boolean" then v else default
 	end
 	-- Cosmétiques possédés
 	local owned: { string } = {}
@@ -131,6 +137,7 @@ local function reconcile(saved: { [string]: any }): Types.ProfileData
 		RangActuel = str("RangActuel", PROFILE_DEFAULTS.RangActuel),
 		OwnedCosmetics = owned,
 		EquippedCosmetics = equipped,
+		HasSeenOnboarding = bool("HasSeenOnboarding", false),
 	}
 end
 
@@ -156,6 +163,7 @@ local function saveProfile(userId: number)
 			RangActuel = profile.RangActuel,
 			OwnedCosmetics = profile.OwnedCosmetics,
 			EquippedCosmetics = profile.EquippedCosmetics,
+			HasSeenOnboarding = profile.HasSeenOnboarding,
 		})
 	end)
 	if ok then
@@ -251,6 +259,10 @@ local function onPlayerAdded(player: Player)
 			RangPrecedent = nil,
 			EquippedFrame = (loaded.EquippedCosmetics :: { [string]: any })["frame"],
 		})
+		-- Notifier le client de l'état d'onboarding (séparé pour isoler la responsabilité)
+		Net.fire(player, RemoteNames.OnboardingStatus, {
+			HasSeen = loaded.HasSeenOnboarding,
+		})
 	end)
 end
 
@@ -337,6 +349,14 @@ function PlayerDataService.init()
 		for userId in pairs(gameProfiles) do
 			stopAutosave(userId)
 			saveProfile(userId)
+		end
+	end)
+
+	-- Marque l'onboarding comme vu dès que le client envoie la confirmation
+	Net.onServer(RemoteNames.OnboardingCompleted, function(player, _payload)
+		local profile = PlayerDataService.getGameProfile(player.UserId)
+		if profile then
+			profile.HasSeenOnboarding = true
 		end
 	end)
 

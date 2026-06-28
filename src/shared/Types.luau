@@ -74,6 +74,7 @@ export type ProfileData = {
 	RangActuel: string,
 	OwnedCosmetics: { string },
 	EquippedCosmetics: { [string]: string? },
+	HasSeenOnboarding: boolean,
 }
 
 -- Payload envoyé au client à chaque mise à jour du profil
