@@ -32,6 +32,7 @@ local _container: Frame? = nil
 local _glowFrame: Frame? = nil
 local _wordLabel: TextLabel? = nil
 local _resultLabel: TextLabel? = nil
+local _isPlaying = false
 
 local function ensureGui()
 	if _gui then
@@ -143,6 +144,9 @@ end
 -- verdict : "Guilty" | "Innocent"
 -- onComplete : appelé une fois la séquence terminée (affiche SummaryScreen)
 function VerdictSequence.play(verdict: string, onComplete: () -> ())
+	if _isPlaying then
+		return
+	end
 	ensureGui()
 
 	local gui = _gui :: ScreenGui
@@ -166,6 +170,7 @@ function VerdictSequence.play(verdict: string, onComplete: () -> ())
 	gui.Enabled = true
 
 	task.spawn(function()
+		_isPlaying = true
 		-- 1. Fond sombre
 		tw(overlay, TweenInfo.new(T_FADE_IN, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 			BackgroundTransparency = 0.14,
@@ -210,6 +215,7 @@ function VerdictSequence.play(verdict: string, onComplete: () -> ())
 		task.wait(T_FADE_OUT)
 
 		gui.Enabled = false
+		_isPlaying = false
 		onComplete()
 	end)
 end

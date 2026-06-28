@@ -434,9 +434,11 @@ function SummaryScreen.show(
 		end
 	end
 
-	-- Récompense — placeholder jusqu'à reception de RewardGranted
+	-- Récompense — affiche la valeur déjà reçue ou un placeholder en attente
 	if rewardLabel then
-		rewardLabel.Text = "…"
+		if rewardLabel.Text == "" then
+			rewardLabel.Text = "…"
+		end
 	end
 end
 
@@ -451,6 +453,10 @@ function SummaryScreen.hide()
 	local g = gui
 	if not g then
 		return
+	end
+	-- Remet le label à "" pour que le prochain show() sache qu'aucune récompense n'a encore été reçue
+	if rewardLabel then
+		rewardLabel.Text = ""
 	end
 	-- Slide vers le bas + fade du fond, puis masque
 	if _bg then
