@@ -17,6 +17,7 @@ local VerdictScreen = require(script.ui.VerdictScreen)
 local SummaryScreen = require(script.ui.SummaryScreen)
 local ProfilePanel = require(script.ui.ProfilePanel)
 local ShopScreen = require(script.ui.ShopScreen)
+local VerdictSequence = require(script.ui.VerdictSequence)
 local CameraController = require(script.CameraController)
 local AudioController = require(script.AudioController)
 
@@ -200,7 +201,7 @@ Net.onClient(RemoteNames.ReactionBroadcast, function(payload)
 	end
 end)
 
--- Verdict révélé — affiche le SummaryScreen pour tous les rôles
+-- Verdict révélé — séquence dramatique M3.4 puis SummaryScreen
 Net.onClient(RemoteNames.VerdictRevealed, function(payload)
 	AudioController.play("VerdictReveal")
 	local verdict = payload.Verdict
@@ -224,7 +225,7 @@ Net.onClient(RemoteNames.VerdictRevealed, function(payload)
 	local truth = truthSummary :: { { Key: string, Value: string } }
 	local twist: string = if type(payload.Twist) == "string" then payload.Twist :: string else ""
 
-	-- Calculer correct/incorrect pour le Juré
+	-- Calculer correct/incorrect pour le Juré (avant la séquence — closure)
 	local playerVote = VerdictScreen.getLastVote()
 	local isCorrect: boolean? = nil
 	if currentRole == "Juror" and playerVote ~= "" then
@@ -232,18 +233,24 @@ Net.onClient(RemoteNames.VerdictRevealed, function(payload)
 		isCorrect = (votedGuilty and didLie) or (not votedGuilty and not didLie)
 	end
 
-	SummaryScreen.show(
-		caseTitle,
-		truth,
-		liarDecl,
-		didLie,
-		playerVote,
-		isCorrect,
-		currentRole,
-		guiltyCount,
-		twist,
-		verdict
-	)
+	-- Masquer l'UI active (VerdictScreen pour les Jurés, etc.)
+	hideAllPanels()
+
+	-- Séquence dramatique (~1.7 s) puis ouverture du SummaryScreen
+	VerdictSequence.play(verdict, function()
+		SummaryScreen.show(
+			caseTitle,
+			truth,
+			liarDecl,
+			didLie,
+			playerVote,
+			isCorrect,
+			currentRole,
+			guiltyCount,
+			twist,
+			verdict
+		)
+	end)
 end)
 
 -- Récompenses attribuées — met à jour SummaryScreen et affiche un toast
