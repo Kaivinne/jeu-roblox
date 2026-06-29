@@ -401,8 +401,27 @@ function MatchService.transitionTo(newPhase: Types.MatchPhase)
 						field = contradictions[1],
 						isNpc = true,
 					})
+					local contraKey = contradictions[1]
+					local contraLabel = contraKey
+					local contraDeclared = "?"
+					for _, f in ipairs(CaseService.getClientFields(currentCase)) do
+						if f.Key == contraKey then
+							contraLabel = f.Label
+							local idx = npcDecl[contraKey]
+							if idx ~= nil then
+								local opt = f.Options[idx]
+								if opt ~= nil then
+									contraDeclared = opt
+								end
+							end
+							break
+						end
+					end
 					Net.broadcast(RemoteNames.ContradictionDetected, {
-						Field = contradictions[1],
+						Field = contraKey,
+						FieldLabel = contraLabel,
+						DeclaredValue = contraDeclared,
+						Explanation = "Ce champ contredit les faits établis.",
 					})
 				end
 			end)
@@ -514,8 +533,27 @@ function MatchService.init()
 				theme = case.Theme,
 				field = contradictions[1],
 			})
+			local contraKey = contradictions[1]
+			local contraLabel = contraKey
+			local contraDeclared = "?"
+			for _, f in ipairs(CaseService.getClientFields(case)) do
+				if f.Key == contraKey then
+					contraLabel = f.Label
+					local idx = fieldSelections[contraKey]
+					if idx ~= nil then
+						local opt = f.Options[idx]
+						if opt ~= nil then
+							contraDeclared = opt
+						end
+					end
+					break
+				end
+			end
 			Net.broadcast(RemoteNames.ContradictionDetected, {
-				Field = contradictions[1],
+				Field = contraKey,
+				FieldLabel = contraLabel,
+				DeclaredValue = contraDeclared,
+				Explanation = "Ce champ contredit les faits établis.",
 			})
 		end
 	end)

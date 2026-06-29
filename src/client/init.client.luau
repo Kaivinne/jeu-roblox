@@ -34,6 +34,7 @@ local currentJetons: number = 0
 local storedAccusation: string = ""
 local lastDeclarationText: string = ""
 local recentReactions: { string } = {}
+local contradictedFieldLabels: { string } = {}
 
 -- Initialiser tous les modules UI (crée les ScreenGuis une seule fois)
 HUD.setup()
@@ -108,6 +109,7 @@ local function applyPhaseUI(phase: string)
 		lastDeclarationText = ""
 		storedAccusation = ""
 		recentReactions = {}
+		contradictedFieldLabels = {}
 	end
 end
 
@@ -214,13 +216,35 @@ Net.onClient(RemoteNames.DeclarationBroadcast, function(payload)
 	end
 end)
 
--- Contradiction détectée par le serveur — alerte subtile
+-- Contradiction détectée par le serveur — alerte enrichie
 Net.onClient(RemoteNames.ContradictionDetected, function(payload)
 	local field = payload.Field
 	if type(field) == "string" then
 		AudioController.play("Contradiction")
 		AudioController.flashContradiction()
-		Toast.error("Une incohérence semble apparaître dans les déclarations…")
+		-- Stocker le label pour marquer SummaryScreen après le verdict
+		local fieldLabel: string
+		local rawLabel = payload.FieldLabel
+		if type(rawLabel) == "string" then
+			fieldLabel = rawLabel :: string
+		else
+			fieldLabel = field
+		end
+		table.insert(contradictedFieldLabels, fieldLabel)
+		-- Toast enrichi : label du champ puis valeur déclarée (sans révéler la vérité)
+		local declaredValue: string = ""
+		local rawDecl = payload.DeclaredValue
+		if type(rawDecl) == "string" then
+			declaredValue = rawDecl :: string
+		end
+		if declaredValue ~= "" then
+			Toast.error("Incohérence : " .. fieldLabel)
+			task.delay(0.8, function()
+				Toast.error('Déclaré : "' .. declaredValue .. '" — vérifiez les faits.')
+			end)
+		else
+			Toast.error("Incohérence détectée : " .. fieldLabel)
+		end
 	end
 end)
 
@@ -273,6 +297,7 @@ Net.onClient(RemoteNames.VerdictRevealed, function(payload)
 	hideAllPanels()
 
 	-- Séquence dramatique (~1.7 s) puis ouverture du SummaryScreen
+	SummaryScreen.setContradictedFields(contradictedFieldLabels)
 	VerdictSequence.play(verdict, function()
 		SummaryScreen.show(
 			caseTitle,

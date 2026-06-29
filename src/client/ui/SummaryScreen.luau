@@ -22,6 +22,7 @@ local correctLabel: TextLabel? = nil
 local rewardLabel: TextLabel? = nil
 local twistLabel: TextLabel? = nil
 local mainPanel: Frame? = nil
+local _contradictedFields: { string } = {}
 
 function SummaryScreen.setup()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
@@ -256,6 +257,11 @@ function SummaryScreen.setup()
 	UIUtils.hoverButton(replayBtn)
 end
 
+-- Met à jour la liste des champs contradictoires (Labels) avant show()
+function SummaryScreen.setContradictedFields(fields: { string })
+	_contradictedFields = fields
+end
+
 -- Affiche l'écran de résumé avec toutes les données de la partie.
 -- playerVote : "Guilty" | "Innocent" | "" (pas voté)
 -- isCorrect  : nil si le joueur n'est pas Juré ou n'a pas voté
@@ -300,27 +306,39 @@ function SummaryScreen.show(
 			end
 		end
 		for _, entry in ipairs(truthSummary) do
+			-- Vérifier si ce champ a été signalé comme contradictoire
+			local isContradicted = false
+			for _, cl in ipairs(_contradictedFields) do
+				if cl == entry.Key then
+					isContradicted = true
+					break
+				end
+			end
+			local rowH = if isContradicted then 42 else 26
+
 			local row = Instance.new("Frame")
-			row.Size = UDim2.new(1, 0, 0, 26)
-			row.BackgroundColor3 = Color3.fromRGB(18, 32, 18)
+			row.Size = UDim2.new(1, 0, 0, rowH)
+			row.BackgroundColor3 = if isContradicted
+				then Color3.fromRGB(50, 10, 10)
+				else Color3.fromRGB(18, 32, 18)
 			row.BackgroundTransparency = 0.35
 			row.BorderSizePixel = 0
 			row.Parent = truthContainer
 			UIUtils.round(row, 6)
 
 			local kLbl = Instance.new("TextLabel")
-			kLbl.Size = UDim2.new(0.52, 0, 1, 0)
+			kLbl.Size = UDim2.new(0.52, 0, 0, 26)
 			kLbl.Position = UDim2.new(0, 8, 0, 0)
 			kLbl.BackgroundTransparency = 1
 			kLbl.Text = entry.Key
-			kLbl.TextColor3 = UIUtils.Color.Muted
+			kLbl.TextColor3 = if isContradicted then Color3.fromRGB(230, 120, 120) else UIUtils.Color.Muted
 			kLbl.Font = UIUtils.Font.Body
 			kLbl.TextSize = 12
 			kLbl.TextXAlignment = Enum.TextXAlignment.Left
 			kLbl.Parent = row
 
 			local vLbl = Instance.new("TextLabel")
-			vLbl.Size = UDim2.new(0.47, -8, 1, 0)
+			vLbl.Size = UDim2.new(0.47, if isContradicted then -30 else -8, 0, 26)
 			vLbl.Position = UDim2.new(0.52, 0, 0, 0)
 			vLbl.BackgroundTransparency = 1
 			vLbl.Text = entry.Value
@@ -329,6 +347,34 @@ function SummaryScreen.show(
 			vLbl.TextSize = 13
 			vLbl.TextXAlignment = Enum.TextXAlignment.Left
 			vLbl.Parent = row
+
+			if isContradicted then
+				-- Badge "!" en haut à droite
+				local badge = Instance.new("TextLabel")
+				badge.Size = UDim2.new(0, 18, 0, 18)
+				badge.Position = UDim2.new(1, -22, 0, 4)
+				badge.BackgroundColor3 = UIUtils.Color.Crimson
+				badge.BackgroundTransparency = 0
+				badge.BorderSizePixel = 0
+				badge.Text = "!"
+				badge.TextColor3 = UIUtils.Color.White
+				badge.Font = UIUtils.Font.Title
+				badge.TextSize = 11
+				badge.TextXAlignment = Enum.TextXAlignment.Center
+				badge.Parent = row
+				UIUtils.round(badge, 3)
+				-- Note explicative
+				local noteLbl = Instance.new("TextLabel")
+				noteLbl.Size = UDim2.new(1, -8, 0, 14)
+				noteLbl.Position = UDim2.new(0, 8, 0, 26)
+				noteLbl.BackgroundTransparency = 1
+				noteLbl.Text = "Ce champ ne correspondait pas à la vérité"
+				noteLbl.TextColor3 = UIUtils.Color.Crimson
+				noteLbl.Font = UIUtils.Font.Body
+				noteLbl.TextSize = 10
+				noteLbl.TextXAlignment = Enum.TextXAlignment.Left
+				noteLbl.Parent = row
+			end
 		end
 	end
 
