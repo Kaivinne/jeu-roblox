@@ -244,6 +244,8 @@ local LOOP_ANCHOR: { [string]: string } = {
 
 local FADE_OUT = 0.80
 local FADE_IN = 0.80
+local DUCK_FADE_DOWN = 0.10 -- descente rapide — impact immédiat
+local DUCK_FADE_UP = 0.40 -- remontée progressive — pas de saut brusque
 
 -- ─── État interne ─────────────────────────────────────────────────────────────
 
@@ -255,6 +257,8 @@ local _ambientTask: thread? = nil
 local _currentTween: Tween? = nil
 local _currentPhase: string = ""
 local _lastPlayTime: { [string]: number } = {}
+local _duckCount: { [string]: number } = {} -- nombre de ducks actifs par SoundGroup
+local _duckTween: { [string]: Tween? } = {} -- tween volume en cours par SoundGroup
 
 -- ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -278,6 +282,50 @@ local function findAnchor(anchorName: string): BasePart?
 		return nil
 	end
 	return courthouse:FindFirstChild(anchorName) :: BasePart?
+end
+
+-- Applique un duck sur un seul SoundGroup. Gère les chevauchements par compteur.
+-- Seul le duck le plus profond est appliqué ; la restauration attend que tous les
+-- ducks sur ce groupe soient terminés.
+local function duckGroup(groupName: string, factor: number, duration: number)
+	local grp = _groups[groupName]
+	if not grp then
+		return
+	end
+	local baseVol = GROUP_VOLUMES[groupName] or 1.0
+	local targetVol = baseVol * (1 - factor)
+	_duckCount[groupName] = (_duckCount[groupName] or 0) + 1
+	-- Tween descente uniquement si la cible est plus basse que le volume courant
+	if targetVol < grp.Volume then
+		local prev = _duckTween[groupName]
+		if prev then
+			prev:Cancel()
+		end
+		local tw = TweenService:Create(
+			grp,
+			TweenInfo.new(DUCK_FADE_DOWN, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{ Volume = targetVol }
+		)
+		_duckTween[groupName] = tw
+		tw:Play()
+	end
+	-- Restauration après la durée demandée, seulement si plus aucun duck actif
+	task.delay(duration, function()
+		_duckCount[groupName] = math.max(0, (_duckCount[groupName] or 0) - 1)
+		if _duckCount[groupName] == 0 then
+			local prev = _duckTween[groupName]
+			if prev then
+				prev:Cancel()
+			end
+			local restoreTw = TweenService:Create(
+				grp,
+				TweenInfo.new(DUCK_FADE_UP, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+				{ Volume = baseVol }
+			)
+			_duckTween[groupName] = restoreTw
+			restoreTw:Play()
+		end
+	end)
 end
 
 local function cancelAmbientTransition()
@@ -511,6 +559,18 @@ function AudioController.playAtAnchor(name: string, anchorName: string)
 	end)
 end
 
+-- Réduit temporairement le volume d'un ou plusieurs SoundGroups (ducking).
+-- groups   : noms des SoundGroups à réduire (ex. {"Ambience", "Environment"})
+-- factor   : fraction de réduction — 0.6 = −60 %, volume cible = base × (1 − factor)
+-- duration : secondes avant le début de la restauration (fondu retour +0.4 s après)
+-- Robuste aux chevauchements : seul le duck le plus profond est appliqué ;
+-- la restauration n'a lieu que quand tous les ducks sur le groupe sont terminés.
+function AudioController.duck(groups: { string }, factor: number, duration: number)
+	for _, groupName in ipairs(groups) do
+		duckGroup(groupName, factor, duration)
+	end
+end
+
 -- Adapte l'ambiance musicale et la couche d'environnement à la phase de jeu.
 -- Ignoré si la phase est identique à la courante.
 function AudioController.onPhaseChanged(phase: string)
@@ -528,6 +588,7 @@ function AudioController.onPhaseChanged(phase: string)
 
 	-- Sons spatialisés de scène — portes, pas, chaises, depuis les ancres WorldBuilder
 	if phase == "Intro" then
+		AudioController.duck({ "Ambience" }, 0.4, 1.5) -- RoleTransition : ambiance en retrait
 		AudioController.playAtAnchor("door_open", "AudioAnchor_Door")
 		task.delay(0.6, function()
 			AudioController.playAtAnchor("footsteps_wood", "AudioAnchor_Aisle")

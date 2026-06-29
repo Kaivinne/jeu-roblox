@@ -238,6 +238,7 @@ end)
 Net.onClient(RemoteNames.ContradictionDetected, function(payload)
 	local field = payload.Field
 	if type(field) == "string" then
+		AudioController.duck({ "Ambience" }, 0.3, 1.0) -- Contradiction : ambiance en retrait 1 s
 		AudioController.play("contradiction")
 		AudioController.flashContradiction()
 		-- Stocker le label pour marquer SummaryScreen après le verdict
@@ -314,6 +315,8 @@ Net.onClient(RemoteNames.VerdictRevealed, function(payload)
 
 	-- Masquer l'UI active (VerdictScreen pour les Jurés, etc.)
 	hideAllPanels()
+	-- Ducking : Ambience −60 %, Environment −50 % pendant la séquence verdict (2.5 s)
+	AudioController.duck({ "Ambience", "Environment" }, 0.6, 2.5)
 
 	-- Séquence sonore du verdict décalée pour accompagner la cinématique (~1.7 s)
 	task.delay(0.8, function()
