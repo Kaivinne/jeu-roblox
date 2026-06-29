@@ -56,13 +56,15 @@ CharacterPresenceController.setup()
 CharacterAnimationLayer.setup()
 WelcomeScreen.show()
 VerdictScreen.setOnVoteCast(function()
-	AudioController.play("Vote")
+	AudioController.play("vote")
 end)
 ProfilePanel.setOnShopClick(function()
+	AudioController.play("ui_click")
 	Net.getEvent(RemoteNames.ShopOpen):FireServer({})
 	ShopScreen.open()
 end)
 ProfilePanel.setOnHelpClick(function()
+	AudioController.play("ui_click")
 	OnboardingScreen.replay()
 end)
 -- Toast est lazy-initialized à la première notification
@@ -108,6 +110,7 @@ local function applyPhaseUI(phase: string)
 			recentReactions
 		)
 	elseif phase == "Intro" then
+		AudioController.play("whoosh")
 		RoleTransitionScreen.play(currentRole, currentObjective)
 	elseif phase == "Lobby" then
 		Toast.info("En attente de joueurs...")
@@ -213,7 +216,7 @@ end)
 
 -- Déclaration d'un autre joueur ou du NPC reçue (visible par tous)
 Net.onClient(RemoteNames.DeclarationBroadcast, function(payload)
-	AudioController.play("Declaration")
+	AudioController.play("paper_slide")
 	local fromName = payload.FromName
 	local fieldValues = payload.FieldValues
 	if type(fromName) == "string" and type(fieldValues) == "table" then
@@ -235,7 +238,8 @@ end)
 Net.onClient(RemoteNames.ContradictionDetected, function(payload)
 	local field = payload.Field
 	if type(field) == "string" then
-		AudioController.play("Contradiction")
+		AudioController.play("contradiction")
+		AudioController.play("cinematic_hit")
 		AudioController.flashContradiction()
 		-- Stocker le label pour marquer SummaryScreen après le verdict
 		local fieldLabel: string
@@ -278,7 +282,7 @@ end)
 
 -- Verdict révélé — séquence dramatique M3.4 puis SummaryScreen
 Net.onClient(RemoteNames.VerdictRevealed, function(payload)
-	AudioController.play("VerdictReveal")
+	AudioController.play("verdict_boom")
 	local verdict = payload.Verdict
 	local guiltyCount = payload.GuiltyCount
 	local caseTitle = payload.CaseTitle
@@ -310,6 +314,15 @@ Net.onClient(RemoteNames.VerdictRevealed, function(payload)
 
 	-- Masquer l'UI active (VerdictScreen pour les Jurés, etc.)
 	hideAllPanels()
+
+	-- Séquence sonore du verdict décalée pour accompagner la cinématique (~1.7 s)
+	task.delay(0.8, function()
+		AudioController.play("gavel_hit")
+	end)
+	local verdictSound = if verdict == "Guilty" then "guilty_reveal" else "innocent_reveal"
+	task.delay(1.6, function()
+		AudioController.play(verdictSound)
+	end)
 
 	-- Réaction corporelle au verdict (posture one-shot, 2 s)
 	local reactionKind = "neutral"
@@ -345,7 +358,7 @@ end)
 Net.onClient(RemoteNames.RewardGranted, function(payload)
 	local jetons = payload.Jetons
 	if type(jetons) == "number" and jetons > 0 then
-		AudioController.play("Reward")
+		AudioController.play("coin_collect")
 		SummaryScreen.setReward(jetons)
 		Toast.success(string.format("+%d Jetons", jetons))
 	end
@@ -385,8 +398,10 @@ Net.onClient(RemoteNames.ShopPurchaseResult, function(payload)
 	local message = payload.Message
 	if type(message) == "string" then
 		if payload.Success == true then
+			AudioController.play("purchase_success")
 			Toast.success(message)
 		else
+			AudioController.play("purchase_failed")
 			Toast.error(message)
 		end
 	end
@@ -395,6 +410,7 @@ end)
 -- Résultat d'un équipement
 Net.onClient(RemoteNames.ShopEquipResult, function(payload)
 	if payload.Success == true then
+		AudioController.play("equip_item")
 		local slot = payload.Slot
 		local itemId = payload.ItemId
 		if type(slot) == "string" and slot == "frame" and type(itemId) == "string" then

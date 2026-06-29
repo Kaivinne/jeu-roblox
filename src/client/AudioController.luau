@@ -1,12 +1,11 @@
 --!strict
--- Gestion audio et feedbacks visuels légers côté client.
--- M3.5 : ambiances différentes par phase avec transitions douces.
--- M4.3 : direction sonore cohérente — table TODO_REPLACE_SOUND_IDS centralisée.
+-- Gestion audio côté client — M4.4 Full Audio Integration.
+-- Bibliothèque sonore complète avec IDs validés, SoundGroups par catégorie,
+-- ambiances par phase, couche environnement en loop, anti-spam par cooldown.
 --
--- Pour remplacer un son :
---   1. Uploader l'asset sur Roblox Studio (son libre de droits uniquement).
---   2. Copier le rbxassetid dans TODO_REPLACE_SOUND_IDS à la clé correspondante.
---   3. Relancer le jeu — aucune autre modification nécessaire.
+-- Pour déclencher un son depuis n'importe quel module :
+--   AudioController.play("nom_du_son")   → one-shot, respecte le cooldown
+-- Pour ajouter un son : l'inscrire dans SOUNDS avec son groupe.
 
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
@@ -14,134 +13,244 @@ local SoundService = game:GetService("SoundService")
 
 local AudioController = {}
 
--- ─── Table des sons à remplacer ───────────────────────────────────────────────
--- Toutes les clés "rbxassetid://REPLACE_*" sont des marqueurs intentionnels.
--- Le fallback silencieux (pcall sur Play) garantit qu'un ID invalide ne fait pas crasher.
--- Remplacer chaque entrée par un rbxassetid valide et libre de droits.
---
--- ┌────────────────────────┬──────────────────────────────────────────────────────┐
--- │ Clé                    │ Description du son attendu                           │
--- ├────────────────────────┼──────────────────────────────────────────────────────┤
--- │ gavel_hit              │ Coup de marteau solennel. Court (0.5–1 s), grave.    │
--- │                        │ Vol cible : 0.65 · Pitch : 0.85.                     │
--- │                        │ Usage : VerdictReveal.                                │
--- ├────────────────────────┼──────────────────────────────────────────────────────┤
--- │ paper_slide            │ Glissement de papier ou tampon de dossier.           │
--- │                        │ Court (0.4–0.7 s), discret.                          │
--- │                        │ Vol cible : 0.28 · Pitch : 1.10.                     │
--- │                        │ Usage : Declaration (dépôt de formulaire).           │
--- ├────────────────────────┼──────────────────────────────────────────────────────┤
--- │ low_ding               │ Tintement doux, confirmation neutre.                 │
--- │                        │ Court (0.3–0.6 s), ni agressif ni festif.            │
--- │                        │ Vol cible : 0.22 · Pitch : 1.00.                     │
--- │                        │ Usage : Vote (confirmation de vote).                 │
--- ├────────────────────────┼──────────────────────────────────────────────────────┤
--- │ tension_sting          │ Accent musical bref, tension croissante.             │
--- │                        │ Court (0.6–1.2 s), grave, non-mélodique.             │
--- │                        │ Vol cible : 0.36 · Pitch : 0.90.                     │
--- │                        │ Usage : PhaseChange (Testimony, Verdict).            │
--- ├────────────────────────┼──────────────────────────────────────────────────────┤
--- │ alarm_short            │ Alerte brève, désagréable sans être agressive.       │
--- │                        │ Très court (0.3–0.5 s), pitch bas.                   │
--- │                        │ Vol cible : 0.48 · Pitch : 0.72.                     │
--- │                        │ Usage : Contradiction.                                │
--- ├────────────────────────┼──────────────────────────────────────────────────────┤
--- │ reward_chime           │ Tintement positif, récompense légère.               │
--- │                        │ Court (0.5–1 s), aigu et clair.                      │
--- │                        │ Vol cible : 0.42 · Pitch : 1.45.                     │
--- │                        │ Usage : Reward (jetons accordés).                    │
--- ├────────────────────────┼──────────────────────────────────────────────────────┤
--- │ ambience_courtroom     │ Ambiance salle de tribunal : silence pesant,         │
--- │                        │ légers bruits de foule distants, ventilation douce.  │
--- │                        │ Loop 15–30 s · Vol cible : 0.04–0.05.               │
--- │                        │ Usage : Lobby, Matchmaking, PostVerdict, Cleanup.    │
--- ├────────────────────────┼──────────────────────────────────────────────────────┤
--- │ ambience_tension       │ Drone bas et rythmé, pression psychologique douce.  │
--- │                        │ Loop 15–30 s · Vol cible : 0.06–0.08.               │
--- │                        │ Usage : Intro, Testimony, Deliberation.              │
--- ├────────────────────────┼──────────────────────────────────────────────────────┤
--- │ ambience_dramatic      │ Drone dramatique, pic d'intensité bref et sombre.   │
--- │                        │ Loop 10–20 s · Vol cible : 0.07–0.09.               │
--- │                        │ Usage : Verdict.                                      │
--- └────────────────────────┴──────────────────────────────────────────────────────┘
+-- ─── SoundGroups — volumes de catégorie ───────────────────────────────────────
+-- Multiplicateur 0–10 ; 1.0 = neutre. Ajustables en Studio sans toucher au code.
 
-local TODO_REPLACE_SOUND_IDS: { [string]: string } = {
-	gavel_hit = "rbxassetid://REPLACE_GAVEL_HIT",
-	paper_slide = "rbxassetid://REPLACE_PAPER_SLIDE",
-	low_ding = "rbxassetid://REPLACE_LOW_DING",
-	tension_sting = "rbxassetid://REPLACE_TENSION_STING",
-	alarm_short = "rbxassetid://REPLACE_ALARM_SHORT",
-	reward_chime = "rbxassetid://REPLACE_REWARD_CHIME",
-	ambience_courtroom = "rbxassetid://REPLACE_AMBIENCE_COURTROOM",
-	ambience_tension = "rbxassetid://REPLACE_AMBIENCE_TENSION",
-	ambience_dramatic = "rbxassetid://REPLACE_AMBIENCE_DRAMATIC",
+local GROUP_VOLUMES: { [string]: number } = {
+	Cinematic = 1.2, -- verdict, transitions — légèrement au-dessus
+	Gameplay = 1.0,
+	UI = 0.9, -- discret, jamais intrusif
+	Environment = 0.6, -- couche de fond très subtile
+	Ambience = 0.8, -- musique de fond
 }
 
--- ─── Configuration SFX ───────────────────────────────────────────────────────
--- id    : clé vers TODO_REPLACE_SOUND_IDS.
--- vol   : volume cible (0–1). Calibré pour une écoute au casque sans pic agressif.
--- pitch : PlaybackSpeed. > 1 = aigu, < 1 = grave.
+-- ─── Type des sons ────────────────────────────────────────────────────────────
 
-type SoundCfg = { id: string, vol: number, pitch: number }
-
-local SFX: { [string]: SoundCfg } = {
-	-- Transition de phase marquante (Testimony, Verdict) — accent sobre et grave
-	PhaseChange = { id = TODO_REPLACE_SOUND_IDS.tension_sting, vol = 0.36, pitch = 0.90 },
-	-- Dépôt d'une déclaration — bruit de manipulation de document
-	Declaration = { id = TODO_REPLACE_SOUND_IDS.paper_slide, vol = 0.28, pitch = 1.10 },
-	-- Incohérence détectée — alerte brève, différenciée du verdict
-	Contradiction = { id = TODO_REPLACE_SOUND_IDS.alarm_short, vol = 0.48, pitch = 0.72 },
-	-- Confirmation de vote — discret, neutre
-	Vote = { id = TODO_REPLACE_SOUND_IDS.low_ding, vol = 0.22, pitch = 1.00 },
-	-- Révélation du verdict — le son le plus impactant du jeu
-	VerdictReveal = { id = TODO_REPLACE_SOUND_IDS.gavel_hit, vol = 0.65, pitch = 0.85 },
-	-- Récompense accordée — positif sans être festif
-	Reward = { id = TODO_REPLACE_SOUND_IDS.reward_chime, vol = 0.42, pitch = 1.45 },
+type SoundCfg = {
+	id: string,
+	vol: number,
+	pitch: number,
+	group: string,
+	looped: boolean?,
 }
 
--- ─── Ambiances par phase ──────────────────────────────────────────────────────
--- Trois niveaux d'intensité : neutre (courtroom) → tension → dramatique.
--- vol : volontairement bas — l'ambiance ne doit jamais couvrir les sons SFX.
+-- ─── Registre complet des sons — IDs validés ─────────────────────────────────
+-- Les sons marqués looped=true sont gérés par le système d'environnement (PHASE_ENV).
+-- Ne pas les appeler via play() manuellement.
+
+local SOUNDS: { [string]: SoundCfg } = {
+
+	-- ── Verdict ──────────────────────────────────────────────────────────────
+	gavel_hit = { id = "rbxassetid://9125573844", vol = 0.65, pitch = 1.00, group = "Cinematic" },
+	verdict_boom = { id = "rbxassetid://9044820101", vol = 0.70, pitch = 0.95, group = "Cinematic" },
+	innocent_reveal = { id = "rbxassetid://1840544226", vol = 0.55, pitch = 1.00, group = "Cinematic" },
+	guilty_reveal = { id = "rbxassetid://1845391028", vol = 0.55, pitch = 1.00, group = "Cinematic" },
+
+	-- ── Documents ────────────────────────────────────────────────────────────
+	paper_slide = { id = "rbxassetid://104817397163339", vol = 0.30, pitch = 1.10, group = "Gameplay" },
+	page_turn = { id = "rbxassetid://95995953662374", vol = 0.25, pitch = 1.00, group = "Gameplay" },
+	pen_write = { id = "rbxassetid://9117286829", vol = 0.20, pitch = 1.05, group = "Gameplay" },
+	paper_drop = { id = "rbxassetid://9125721539", vol = 0.25, pitch = 0.95, group = "Gameplay" },
+
+	-- ── Gameplay ─────────────────────────────────────────────────────────────
+	vote = { id = "rbxassetid://6340682595", vol = 0.30, pitch = 1.00, group = "Gameplay" },
+	contradiction = { id = "rbxassetid://1835537345", vol = 0.50, pitch = 0.80, group = "Gameplay" },
+	countdown = { id = "rbxassetid://6238869231", vol = 0.28, pitch = 1.00, group = "Gameplay" },
+	timer_end = { id = "rbxassetid://99851942666647", vol = 0.40, pitch = 1.00, group = "Gameplay" },
+	reaction = { id = "rbxassetid://9125479599", vol = 0.20, pitch = 1.00, group = "Gameplay" },
+
+	-- ── UI ───────────────────────────────────────────────────────────────────
+	ui_click = { id = "rbxassetid://139719503904449", vol = 0.30, pitch = 1.00, group = "UI" },
+	ui_hover = { id = "rbxassetid://139800881181209", vol = 0.15, pitch = 1.00, group = "UI" },
+	ui_confirm = { id = "rbxassetid://85240253037283", vol = 0.35, pitch = 1.00, group = "UI" },
+	ui_cancel = { id = "rbxassetid://122125495508907", vol = 0.28, pitch = 1.00, group = "UI" },
+	ui_notification = { id = "rbxassetid://8486683243", vol = 0.32, pitch = 1.00, group = "UI" },
+
+	-- ── Récompenses ──────────────────────────────────────────────────────────
+	coin_collect = { id = "rbxassetid://80977935658780", vol = 0.42, pitch = 1.00, group = "Gameplay" },
+	level_up = { id = "rbxassetid://127199850989931", vol = 0.50, pitch = 1.00, group = "Gameplay" },
+	achievement_unlock = {
+		id = "rbxassetid://93360393539898",
+		vol = 0.45,
+		pitch = 1.00,
+		group = "Gameplay",
+	},
+	cash_register = {
+		id = "rbxassetid://134810204798705",
+		vol = 0.38,
+		pitch = 1.00,
+		group = "Gameplay",
+	},
+
+	-- ── Boutique ─────────────────────────────────────────────────────────────
+	purchase_success = { id = "rbxassetid://122766504688172", vol = 0.45, pitch = 1.00, group = "UI" },
+	purchase_failed = { id = "rbxassetid://106796270505945", vol = 0.38, pitch = 1.00, group = "UI" },
+	equip_item = { id = "rbxassetid://125373488678088", vol = 0.38, pitch = 1.05, group = "UI" },
+	unlock_item = { id = "rbxassetid://873617644", vol = 0.42, pitch = 1.00, group = "UI" },
+
+	-- ── Cinématique ──────────────────────────────────────────────────────────
+	whoosh = { id = "rbxassetid://138890894929151", vol = 0.50, pitch = 1.00, group = "Cinematic" },
+	cinematic_hit = {
+		id = "rbxassetid://140315087663767",
+		vol = 0.45,
+		pitch = 1.00,
+		group = "Cinematic",
+	},
+	riser = { id = "rbxassetid://1843027982", vol = 0.40, pitch = 1.00, group = "Cinematic" },
+	transition_sweep = {
+		id = "rbxassetid://131621553321105",
+		vol = 0.38,
+		pitch = 1.00,
+		group = "Cinematic",
+	},
+	heartbeat = { id = "rbxassetid://135454814111440", vol = 0.25, pitch = 1.00, group = "Cinematic" },
+
+	-- ── Environnement (one-shot) ──────────────────────────────────────────────
+	door_open = {
+		id = "rbxassetid://138380478466241",
+		vol = 0.35,
+		pitch = 1.00,
+		group = "Environment",
+	},
+	door_close = {
+		id = "rbxassetid://136038446613189",
+		vol = 0.32,
+		pitch = 1.00,
+		group = "Environment",
+	},
+	footsteps_wood = {
+		id = "rbxassetid://137526436035209",
+		vol = 0.28,
+		pitch = 1.00,
+		group = "Environment",
+	},
+	chair_move = { id = "rbxassetid://9125759795", vol = 0.25, pitch = 1.00, group = "Environment" },
+	chair_sit = { id = "rbxassetid://9120806410", vol = 0.22, pitch = 1.00, group = "Environment" },
+	crowd_gasp = {
+		id = "rbxassetid://114951608300912",
+		vol = 0.40,
+		pitch = 1.00,
+		group = "Environment",
+	},
+	crowd_applause = {
+		id = "rbxassetid://17844638663",
+		vol = 0.35,
+		pitch = 1.00,
+		group = "Environment",
+	},
+	clock_chime = {
+		id = "rbxassetid://131294162478945",
+		vol = 0.30,
+		pitch = 1.00,
+		group = "Environment",
+	},
+
+	-- ── Environnement (loop — gérés par PHASE_ENV) ────────────────────────────
+	crowd_murmur = {
+		id = "rbxassetid://9114012248",
+		vol = 0.12,
+		pitch = 1.00,
+		group = "Environment",
+		looped = true,
+	},
+	clock_tick = {
+		id = "rbxassetid://128707491647978",
+		vol = 0.08,
+		pitch = 1.00,
+		group = "Environment",
+		looped = true,
+	},
+	wind_ambience = {
+		id = "rbxassetid://93035214379043",
+		vol = 0.08,
+		pitch = 1.00,
+		group = "Environment",
+		looped = true,
+	},
+	rain_window = {
+		id = "rbxassetid://9112857056",
+		vol = 0.10,
+		pitch = 1.00,
+		group = "Environment",
+		looped = true,
+	},
+}
+
+-- ─── Ambiances musicales par phase (crossfade) ────────────────────────────────
+-- Une piste de fond par phase. Fondu croisé de 0.8 s entre les phases.
 
 type AmbientCfg = { id: string, vol: number }
 
 local PHASE_AMBIENT: { [string]: AmbientCfg } = {
-	Lobby = { id = TODO_REPLACE_SOUND_IDS.ambience_courtroom, vol = 0.05 },
-	Matchmaking = { id = TODO_REPLACE_SOUND_IDS.ambience_courtroom, vol = 0.04 },
-	Intro = { id = TODO_REPLACE_SOUND_IDS.ambience_tension, vol = 0.06 },
-	Testimony = { id = TODO_REPLACE_SOUND_IDS.ambience_tension, vol = 0.07 },
-	Deliberation = { id = TODO_REPLACE_SOUND_IDS.ambience_tension, vol = 0.05 },
-	Verdict = { id = TODO_REPLACE_SOUND_IDS.ambience_dramatic, vol = 0.08 },
-	PostVerdict = { id = TODO_REPLACE_SOUND_IDS.ambience_courtroom, vol = 0.04 },
-	Cleanup = { id = TODO_REPLACE_SOUND_IDS.ambience_courtroom, vol = 0.03 },
+	Lobby = { id = "rbxassetid://9112753600", vol = 0.05 },
+	Matchmaking = { id = "rbxassetid://9112753600", vol = 0.04 },
+	Intro = { id = "rbxassetid://9046799798", vol = 0.06 },
+	Testimony = { id = "rbxassetid://1836167172", vol = 0.07 },
+	Deliberation = { id = "rbxassetid://1837911337", vol = 0.05 },
+	Verdict = { id = "rbxassetid://1846491568", vol = 0.08 },
+	PostVerdict = { id = "rbxassetid://9112753600", vol = 0.04 },
+	Cleanup = { id = "rbxassetid://9112753600", vol = 0.03 },
 }
 
--- ─── Paramètres de fondu ─────────────────────────────────────────────────────
+-- ─── Couche d'environnement par phase ────────────────────────────────────────
+-- Sons en loop démarrés/arrêtés lors des changements de phase.
+-- Les sons partagés entre deux phases adjacentes ne sont pas interrompus.
 
-local FADE_OUT = 0.80 -- secondes pour descendre à 0
-local FADE_IN = 0.80 -- secondes pour monter au volume cible
+local PHASE_ENV: { [string]: { string } } = {
+	Lobby = { "crowd_murmur" },
+	Matchmaking = { "crowd_murmur" },
+	Intro = { "crowd_murmur", "clock_tick" },
+	Testimony = { "clock_tick" },
+	Deliberation = { "crowd_murmur", "clock_tick" },
+	Verdict = { "crowd_murmur" },
+	PostVerdict = { "crowd_murmur" },
+	Cleanup = {},
+}
+
+-- ─── Anti-spam : cooldowns par son (secondes) ─────────────────────────────────
+
+local COOLDOWN: { [string]: number } = {
+	ui_hover = 0.08,
+	ui_click = 0.05,
+	ui_confirm = 0.20,
+	reaction = 0.15,
+	contradiction = 1.00,
+	countdown = 0.90,
+	footsteps_wood = 0.25,
+}
+
+-- ─── Paramètres de fondu d'ambiance ──────────────────────────────────────────
+
+local FADE_OUT = 0.80
+local FADE_IN = 0.80
 
 -- ─── État interne ─────────────────────────────────────────────────────────────
 
 local sounds: { [string]: Sound } = {}
+local _groups: { [string]: SoundGroup } = {}
 local activeAmbient: Sound? = nil
 local flashFrame: Frame? = nil
 local _ambientTask: thread? = nil
 local _currentTween: Tween? = nil
 local _currentPhase: string = ""
+local _lastPlayTime: { [string]: number } = {}
 
 -- ─── Helpers ──────────────────────────────────────────────────────────────────
 
-local function makeSound(cfg: SoundCfg): Sound
-	local s = Instance.new("Sound")
-	s.SoundId = cfg.id
-	s.Volume = cfg.vol
-	s.PlaybackSpeed = cfg.pitch
-	s.Parent = SoundService
-	return s
+local function canPlay(name: string): boolean
+	local cd = COOLDOWN[name]
+	if not cd or cd == 0 then
+		return true
+	end
+	local now = tick()
+	local last = _lastPlayTime[name]
+	if last and (now - last) < cd then
+		return false
+	end
+	_lastPlayTime[name] = now
+	return true
 end
 
--- Interrompt toute transition d'ambiance en cours.
 local function cancelAmbientTransition()
 	if _ambientTask then
 		task.cancel(_ambientTask)
@@ -153,64 +262,117 @@ local function cancelAmbientTransition()
 	end
 end
 
--- Fondu croisé : descente → échange d'asset → montée.
--- Silencieux si l'asset cible échoue (pcall sur Play).
 local function crossfadeTo(cfg: AmbientCfg)
 	local s = activeAmbient
 	if not s then
 		return
 	end
 	cancelAmbientTransition()
-
 	_ambientTask = task.spawn(function()
-		-- Fade-out de l'ambiance courante
 		local twOut = TweenService:Create(
 			s,
 			TweenInfo.new(FADE_OUT, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-			{
-				Volume = 0,
-			}
+			{ Volume = 0 }
 		)
 		_currentTween = twOut
 		twOut:Play()
 		task.wait(FADE_OUT)
-
-		-- Échange de l'asset — silencieux si l'ID est invalide
 		pcall(function()
 			s.SoundId = cfg.id
 			s.Volume = 0
 			s:Play()
 		end)
-
-		-- Fade-in vers le volume cible
-		local twIn =
-			TweenService:Create(s, TweenInfo.new(FADE_IN, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-				Volume = cfg.vol,
-			})
+		local twIn = TweenService:Create(
+			s,
+			TweenInfo.new(FADE_IN, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+			{ Volume = cfg.vol }
+		)
 		_currentTween = twIn
 		twIn:Play()
 		task.wait(FADE_IN)
-
 		_currentTween = nil
 		_ambientTask = nil
 	end)
 end
 
--- ─── API publique ─────────────────────────────────────────────────────────────
+-- Transition entre les couches d'environnement de deux phases.
+-- Les sons partagés entre fromPhase et toPhase ne sont pas interrompus.
+local function transitionEnvSounds(fromPhase: string, toPhase: string)
+	local fromList = PHASE_ENV[fromPhase] or {}
+	local toList = PHASE_ENV[toPhase] or {}
 
--- Crée toutes les instances Sound et l'overlay de flash.
--- Doit être appelé une seule fois depuis init.client après PlayerGui disponible.
-function AudioController.setup()
-	for name, cfg in pairs(SFX) do
-		sounds[name] = makeSound(cfg)
+	local toSet: { [string]: boolean } = {}
+	for _, name in ipairs(toList) do
+		toSet[name] = true
 	end
 
-	-- Ambiance initiale : Lobby
+	for _, name in ipairs(fromList) do
+		if not toSet[name] then
+			local s = sounds[name]
+			if s then
+				pcall(function()
+					s:Stop()
+				end)
+			end
+		end
+	end
+
+	for _, name in ipairs(toList) do
+		local s = sounds[name]
+		if s and not s.IsPlaying then
+			pcall(function()
+				s:Play()
+			end)
+		end
+	end
+end
+
+-- ─── API publique ─────────────────────────────────────────────────────────────
+
+-- Initialise les SoundGroups, crée toutes les instances Sound, démarre l'ambiance Lobby.
+-- Appelé une seule fois depuis init.client.
+function AudioController.setup()
+	-- SoundGroups par catégorie
+	for name, vol in pairs(GROUP_VOLUMES) do
+		local g = Instance.new("SoundGroup")
+		g.Name = name
+		g.Volume = vol
+		g.Parent = SoundService
+		_groups[name] = g
+	end
+
+	-- Instances Sound pour chaque entrée du registre
+	for name, cfg in pairs(SOUNDS) do
+		local s = Instance.new("Sound")
+		s.SoundId = cfg.id
+		s.Volume = cfg.vol
+		s.PlaybackSpeed = cfg.pitch
+		local grp = _groups[cfg.group]
+		if grp then
+			-- Assigner le SoundGroup pour le mixage par catégorie
+			pcall(function()
+				s.SoundGroup = grp
+			end)
+		end
+		if cfg.looped then
+			s.Looped = true
+		end
+		s.Parent = SoundService
+		sounds[name] = s
+	end
+
+	-- Ambiance initiale (Lobby)
 	local initCfg = PHASE_AMBIENT.Lobby
 	local amb = Instance.new("Sound")
 	amb.SoundId = initCfg.id
 	amb.Volume = initCfg.vol
 	amb.Looped = true
+	local ambGrp = _groups["Ambience"]
+	if ambGrp then
+		pcall(function()
+			amb.SoundGroup = ambGrp
+		end)
+	end
 	amb.Parent = SoundService
 	activeAmbient = amb
 	pcall(function()
@@ -218,7 +380,10 @@ function AudioController.setup()
 	end)
 	_currentPhase = "Lobby"
 
-	-- Overlay de flash rouge (transparent au repos)
+	-- Couche d'environnement initiale
+	transitionEnvSounds("", "Lobby")
+
+	-- Overlay de flash rouge (contradiction visuelle)
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui") :: PlayerGui
 	local screen = Instance.new("ScreenGui")
 	screen.Name = "AudioFlashGui"
@@ -226,7 +391,6 @@ function AudioController.setup()
 	screen.ResetOnSpawn = false
 	screen.IgnoreGuiInset = true
 	screen.Parent = playerGui
-
 	local flash = Instance.new("Frame")
 	flash.Size = UDim2.new(1, 0, 1, 0)
 	flash.BackgroundColor3 = Color3.fromRGB(180, 30, 30)
@@ -236,8 +400,12 @@ function AudioController.setup()
 	flashFrame = flash
 end
 
--- Joue un son SFX par nom. Silencieux si l'asset échoue ou est absent.
+-- Joue un son one-shot par nom. Silencieux si l'asset est invalide.
+-- Respecte le cooldown anti-spam configuré dans COOLDOWN.
 function AudioController.play(name: string)
+	if not canPlay(name) then
+		return
+	end
 	pcall(function()
 		local s = sounds[name]
 		if s then
@@ -246,27 +414,31 @@ function AudioController.play(name: string)
 	end)
 end
 
--- Adapte l'ambiance à la phase de jeu et joue un SFX ponctuel si pertinent.
--- Ignoré si la phase est identique à la courante (évite les transitions inutiles).
+-- Adapte l'ambiance musicale et la couche d'environnement à la phase de jeu.
+-- Ignoré si la phase est identique à la courante.
 function AudioController.onPhaseChanged(phase: string)
 	if phase == _currentPhase then
 		return
 	end
+	local prev = _currentPhase
 	_currentPhase = phase
 
-	-- SFX ponctuel pour les phases marquantes
+	-- SFX de transition pour les phases marquantes
 	if phase == "Intro" or phase == "Testimony" or phase == "Verdict" then
-		AudioController.play("PhaseChange")
+		AudioController.play("transition_sweep")
 	end
 
-	-- Transition d'ambiance vers la phase
+	-- Fondu croisé de l'ambiance musicale
 	local cfg = PHASE_AMBIENT[phase]
 	if cfg then
 		crossfadeTo(cfg)
 	end
+
+	-- Transition de la couche environnement
+	transitionEnvSounds(prev, phase)
 end
 
--- Flash rouge bref (contradiction visuelle).
+-- Flash rouge bref (feedback visuel contradiction).
 function AudioController.flashContradiction()
 	local flash = flashFrame
 	if not flash then
