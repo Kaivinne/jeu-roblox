@@ -21,6 +21,7 @@ local VerdictSequence = require(script.ui.VerdictSequence)
 local WelcomeScreen = require(script.ui.WelcomeScreen)
 local OnboardingScreen = require(script.ui.OnboardingScreen)
 local DeliberationScreen = require(script.ui.DeliberationScreen)
+local RoleTransitionScreen = require(script.ui.RoleTransitionScreen)
 local CameraController = require(script.CameraController)
 local AudioController = require(script.AudioController)
 
@@ -28,6 +29,8 @@ local AudioController = require(script.AudioController)
 local currentRole: string = ""
 -- Format de la partie courante (mis à jour par GamePhaseChanged)
 local currentFormat: string = ""
+-- Objectif du rôle courant (mis à jour par RoleAssigned, utilisé par la transition Intro)
+local currentObjective: string = ""
 -- Jetons courants (mis à jour par ProfileUpdated)
 local currentJetons: number = 0
 -- Contexte de délibération (accumulé pendant Intro + Testimony)
@@ -100,12 +103,15 @@ local function applyPhaseUI(phase: string)
 			storedAccusation,
 			recentReactions
 		)
+	elseif phase == "Intro" then
+		RoleTransitionScreen.play(currentRole, currentObjective)
 	elseif phase == "Lobby" then
 		Toast.info("En attente de joueurs...")
 	elseif phase == "Matchmaking" then
 		Toast.info("Préparation de la partie...")
 		-- Réinitialiser l'état du match en attente du prochain cycle
 		currentRole = ""
+		currentObjective = ""
 		lastDeclarationText = ""
 		storedAccusation = ""
 		recentReactions = {}
@@ -129,6 +135,7 @@ end)
 Net.onClient(RemoteNames.RoleAssigned, function(payload)
 	local typed = payload :: Types.RoleAssignedPayload
 	currentRole = typed.Role
+	currentObjective = typed.ShortDescription
 	HUD.setRole(typed.Role)
 
 	local roleLabels: { [string]: string } = {
