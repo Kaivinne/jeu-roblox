@@ -35,6 +35,8 @@ local currentFormat: string = ""
 local currentObjective: string = ""
 -- Jetons courants (mis à jour par ProfileUpdated)
 local currentJetons: number = 0
+-- Verrou one-shot : empêche une double réaction de foule si VerdictRevealed arrive deux fois
+local _crowdScheduled: boolean = false
 -- Contexte de délibération (accumulé pendant Intro + Testimony)
 local storedAccusation: string = ""
 local lastDeclarationText: string = ""
@@ -135,6 +137,7 @@ Net.onClient(RemoteNames.GamePhaseChanged, function(payload)
 	applyPhaseUI(typed.Phase)
 	CameraController.onPhaseChanged(typed.Phase)
 	AudioController.onPhaseChanged(typed.Phase)
+	_crowdScheduled = false -- libère le verrou foule pour le prochain verdict
 	CharacterPresenceController.onPhaseChanged(typed.Phase)
 	CharacterAnimationLayer.onPhaseChanged(typed.Phase)
 	WelcomeScreen.dismiss()
@@ -326,6 +329,14 @@ Net.onClient(RemoteNames.VerdictRevealed, function(payload)
 	task.delay(1.6, function()
 		AudioController.play(verdictSound)
 	end)
+	-- Réaction de foule depuis la galerie — après le reveal, une seule fois par verdict
+	if not _crowdScheduled then
+		_crowdScheduled = true
+		local crowdSound = if verdict == "Guilty" then "crowd_gasp" else "crowd_applause"
+		task.delay(2.0, function()
+			AudioController.playAtAnchor(crowdSound, "AudioAnchor_Gallery")
+		end)
+	end
 
 	-- Réaction corporelle au verdict (posture one-shot, 2 s)
 	local reactionKind = "neutral"

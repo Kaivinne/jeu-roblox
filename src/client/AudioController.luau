@@ -230,6 +230,8 @@ local SPATIAL_MAX_DIST: { [string]: number } = {
 	chair_sit = 18,
 	gavel_hit = 60,
 	crowd_murmur = 55,
+	crowd_gasp = 55,
+	crowd_applause = 55,
 	clock_tick = 42,
 }
 
