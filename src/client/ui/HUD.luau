@@ -6,6 +6,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 local UIUtils = require(script.Parent.UIUtils)
+local AudioController = require(script.Parent.Parent.AudioController)
 
 local HUD = {}
 
@@ -16,8 +17,19 @@ local roleLabel: TextLabel? = nil
 local infoLabel: TextLabel? = nil
 local roleBadge: Frame? = nil
 
+-- Phases où le countdown audio est actif
+local COUNTDOWN_PHASES: { [string]: boolean } = {
+	Testimony = true,
+	Deliberation = true,
+	Verdict = true,
+}
+
 local timeLeft: number = 0
 local _heartbeatConn: RBXScriptConnection? = nil
+-- Dernière seconde entière sur laquelle un son a été joué (-1 = aucune)
+-- Réinitialisé à chaque changement de phase pour éviter les doublons après resync
+local _lastCountdownBeat: number = -1
+local _currentPhaseAudio: string = ""
 
 local PHASE_FR: { [string]: string } = {
 	Lobby = "SALLE D'ATTENTE",
@@ -142,11 +154,25 @@ function HUD.setup()
 				timerLabel.Text = UIUtils.formatTime(timeLeft)
 			end
 		end
+		-- Countdown audio : uniquement sur Testimony / Deliberation / Verdict
+		if COUNTDOWN_PHASES[_currentPhaseAudio] then
+			local beat = math.floor(timeLeft)
+			if beat >= 1 and beat <= 5 and beat ~= _lastCountdownBeat then
+				_lastCountdownBeat = beat
+				AudioController.play("countdown")
+			elseif beat == 0 and _lastCountdownBeat ~= 0 then
+				_lastCountdownBeat = 0
+				AudioController.play("timer_end")
+			end
+		end
 	end)
 end
 
 function HUD.setPhase(phase: string, duration: number)
 	timeLeft = duration
+	-- Réinitialiser le tracking countdown pour la nouvelle phase
+	_currentPhaseAudio = phase
+	_lastCountdownBeat = -1
 	if phaseLabel then
 		phaseLabel.Text = PHASE_FR[phase] or phase
 	end
