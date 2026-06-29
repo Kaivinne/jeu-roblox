@@ -239,7 +239,6 @@ Net.onClient(RemoteNames.ContradictionDetected, function(payload)
 	local field = payload.Field
 	if type(field) == "string" then
 		AudioController.play("contradiction")
-		AudioController.play("cinematic_hit")
 		AudioController.flashContradiction()
 		-- Stocker le label pour marquer SummaryScreen après le verdict
 		local fieldLabel: string
@@ -271,6 +270,7 @@ end)
 Net.onClient(RemoteNames.ReactionBroadcast, function(payload)
 	local reactionType = payload.ReactionType
 	if type(reactionType) == "string" then
+		AudioController.play("reaction")
 		-- Conserver les 3 dernières réactions pour la délibération en Duel
 		table.insert(recentReactions, reactionType)
 		if #recentReactions > 3 then
@@ -374,6 +374,7 @@ Net.onClient(RemoteNames.ProfileUpdated, function(payload)
 		currentJetons = jetons
 		ProfilePanel.update(jetons, rang, perspicacite)
 		if type(rangPrec) == "string" then
+			AudioController.play("level_up")
 			Toast.success("Nouveau rang atteint : " .. rang .. " !")
 		end
 	end

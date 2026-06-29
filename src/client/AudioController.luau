@@ -41,10 +41,10 @@ type SoundCfg = {
 local SOUNDS: { [string]: SoundCfg } = {
 
 	-- ── Verdict ──────────────────────────────────────────────────────────────
-	gavel_hit = { id = "rbxassetid://9125573844", vol = 0.65, pitch = 1.00, group = "Cinematic" },
-	verdict_boom = { id = "rbxassetid://9044820101", vol = 0.70, pitch = 0.95, group = "Cinematic" },
-	innocent_reveal = { id = "rbxassetid://1840544226", vol = 0.55, pitch = 1.00, group = "Cinematic" },
-	guilty_reveal = { id = "rbxassetid://1845391028", vol = 0.55, pitch = 1.00, group = "Cinematic" },
+	gavel_hit = { id = "rbxassetid://9125573844", vol = 0.55, pitch = 1.00, group = "Cinematic" },
+	verdict_boom = { id = "rbxassetid://9044820101", vol = 0.60, pitch = 0.95, group = "Cinematic" },
+	innocent_reveal = { id = "rbxassetid://1840544226", vol = 0.50, pitch = 1.00, group = "Cinematic" },
+	guilty_reveal = { id = "rbxassetid://1845391028", vol = 0.50, pitch = 1.00, group = "Cinematic" },
 
 	-- ── Documents ────────────────────────────────────────────────────────────
 	paper_slide = { id = "rbxassetid://104817397163339", vol = 0.30, pitch = 1.10, group = "Gameplay" },
@@ -424,7 +424,8 @@ function AudioController.onPhaseChanged(phase: string)
 	_currentPhase = phase
 
 	-- SFX de transition pour les phases marquantes
-	if phase == "Intro" or phase == "Testimony" or phase == "Verdict" then
+	-- whoosh est géré par applyPhaseUI pour Intro — pas de doublon ici
+	if phase == "Testimony" or phase == "Verdict" then
 		AudioController.play("transition_sweep")
 	end
 
