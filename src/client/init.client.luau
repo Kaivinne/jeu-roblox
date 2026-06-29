@@ -24,6 +24,7 @@ local DeliberationScreen = require(script.ui.DeliberationScreen)
 local RoleTransitionScreen = require(script.ui.RoleTransitionScreen)
 local CameraController = require(script.CameraController)
 local AudioController = require(script.AudioController)
+local CharacterPresenceController = require(script.CharacterPresenceController)
 
 -- Rôle local du joueur (assigné par le serveur pendant Matchmaking)
 local currentRole: string = ""
@@ -50,6 +51,7 @@ ProfilePanel.setup()
 ShopScreen.setup()
 CameraController.setup()
 AudioController.setup()
+CharacterPresenceController.setup()
 WelcomeScreen.show()
 VerdictScreen.setOnVoteCast(function()
 	AudioController.play("Vote")
@@ -128,6 +130,7 @@ Net.onClient(RemoteNames.GamePhaseChanged, function(payload)
 	applyPhaseUI(typed.Phase)
 	CameraController.onPhaseChanged(typed.Phase)
 	AudioController.onPhaseChanged(typed.Phase)
+	CharacterPresenceController.onPhaseChanged(typed.Phase)
 	WelcomeScreen.dismiss()
 end)
 
@@ -136,6 +139,7 @@ Net.onClient(RemoteNames.RoleAssigned, function(payload)
 	local typed = payload :: Types.RoleAssignedPayload
 	currentRole = typed.Role
 	currentObjective = typed.ShortDescription
+	CharacterPresenceController.onRoleAssigned(typed.Role)
 	HUD.setRole(typed.Role)
 
 	local roleLabels: { [string]: string } = {
