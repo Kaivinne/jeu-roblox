@@ -1,8 +1,12 @@
 --!strict
 -- Gestion audio et feedbacks visuels légers côté client.
 -- M3.5 : ambiances différentes par phase avec transitions douces.
--- Les SoundId sont des placeholders — remplacer uniquement les IDs dans SFX
--- et PHASE_AMBIENT sans toucher au code de déclenchement.
+-- M4.3 : direction sonore cohérente — table TODO_REPLACE_SOUND_IDS centralisée.
+--
+-- Pour remplacer un son :
+--   1. Uploader l'asset sur Roblox Studio (son libre de droits uniquement).
+--   2. Copier le rbxassetid dans TODO_REPLACE_SOUND_IDS à la clé correspondante.
+--   3. Relancer le jeu — aucune autre modification nécessaire.
 
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
@@ -10,46 +14,106 @@ local SoundService = game:GetService("SoundService")
 
 local AudioController = {}
 
+-- ─── Table des sons à remplacer ───────────────────────────────────────────────
+-- Toutes les clés "rbxassetid://REPLACE_*" sont des marqueurs intentionnels.
+-- Le fallback silencieux (pcall sur Play) garantit qu'un ID invalide ne fait pas crasher.
+-- Remplacer chaque entrée par un rbxassetid valide et libre de droits.
+--
+-- ┌────────────────────────┬──────────────────────────────────────────────────────┐
+-- │ Clé                    │ Description du son attendu                           │
+-- ├────────────────────────┼──────────────────────────────────────────────────────┤
+-- │ gavel_hit              │ Coup de marteau solennel. Court (0.5–1 s), grave.    │
+-- │                        │ Vol cible : 0.65 · Pitch : 0.85.                     │
+-- │                        │ Usage : VerdictReveal.                                │
+-- ├────────────────────────┼──────────────────────────────────────────────────────┤
+-- │ paper_slide            │ Glissement de papier ou tampon de dossier.           │
+-- │                        │ Court (0.4–0.7 s), discret.                          │
+-- │                        │ Vol cible : 0.28 · Pitch : 1.10.                     │
+-- │                        │ Usage : Declaration (dépôt de formulaire).           │
+-- ├────────────────────────┼──────────────────────────────────────────────────────┤
+-- │ low_ding               │ Tintement doux, confirmation neutre.                 │
+-- │                        │ Court (0.3–0.6 s), ni agressif ni festif.            │
+-- │                        │ Vol cible : 0.22 · Pitch : 1.00.                     │
+-- │                        │ Usage : Vote (confirmation de vote).                 │
+-- ├────────────────────────┼──────────────────────────────────────────────────────┤
+-- │ tension_sting          │ Accent musical bref, tension croissante.             │
+-- │                        │ Court (0.6–1.2 s), grave, non-mélodique.             │
+-- │                        │ Vol cible : 0.36 · Pitch : 0.90.                     │
+-- │                        │ Usage : PhaseChange (Testimony, Verdict).            │
+-- ├────────────────────────┼──────────────────────────────────────────────────────┤
+-- │ alarm_short            │ Alerte brève, désagréable sans être agressive.       │
+-- │                        │ Très court (0.3–0.5 s), pitch bas.                   │
+-- │                        │ Vol cible : 0.48 · Pitch : 0.72.                     │
+-- │                        │ Usage : Contradiction.                                │
+-- ├────────────────────────┼──────────────────────────────────────────────────────┤
+-- │ reward_chime           │ Tintement positif, récompense légère.               │
+-- │                        │ Court (0.5–1 s), aigu et clair.                      │
+-- │                        │ Vol cible : 0.42 · Pitch : 1.45.                     │
+-- │                        │ Usage : Reward (jetons accordés).                    │
+-- ├────────────────────────┼──────────────────────────────────────────────────────┤
+-- │ ambience_courtroom     │ Ambiance salle de tribunal : silence pesant,         │
+-- │                        │ légers bruits de foule distants, ventilation douce.  │
+-- │                        │ Loop 15–30 s · Vol cible : 0.04–0.05.               │
+-- │                        │ Usage : Lobby, Matchmaking, PostVerdict, Cleanup.    │
+-- ├────────────────────────┼──────────────────────────────────────────────────────┤
+-- │ ambience_tension       │ Drone bas et rythmé, pression psychologique douce.  │
+-- │                        │ Loop 15–30 s · Vol cible : 0.06–0.08.               │
+-- │                        │ Usage : Intro, Testimony, Deliberation.              │
+-- ├────────────────────────┼──────────────────────────────────────────────────────┤
+-- │ ambience_dramatic      │ Drone dramatique, pic d'intensité bref et sombre.   │
+-- │                        │ Loop 10–20 s · Vol cible : 0.07–0.09.               │
+-- │                        │ Usage : Verdict.                                      │
+-- └────────────────────────┴──────────────────────────────────────────────────────┘
+
+local TODO_REPLACE_SOUND_IDS: { [string]: string } = {
+	gavel_hit = "rbxassetid://REPLACE_GAVEL_HIT",
+	paper_slide = "rbxassetid://REPLACE_PAPER_SLIDE",
+	low_ding = "rbxassetid://REPLACE_LOW_DING",
+	tension_sting = "rbxassetid://REPLACE_TENSION_STING",
+	alarm_short = "rbxassetid://REPLACE_ALARM_SHORT",
+	reward_chime = "rbxassetid://REPLACE_REWARD_CHIME",
+	ambience_courtroom = "rbxassetid://REPLACE_AMBIENCE_COURTROOM",
+	ambience_tension = "rbxassetid://REPLACE_AMBIENCE_TENSION",
+	ambience_dramatic = "rbxassetid://REPLACE_AMBIENCE_DRAMATIC",
+}
+
 -- ─── Configuration SFX ───────────────────────────────────────────────────────
--- id    : rbxassetid placeholder.
--- vol   : volume (0–1).
--- pitch : PlaybackSpeed — > 1 aigu, < 1 grave.
+-- id    : clé vers TODO_REPLACE_SOUND_IDS.
+-- vol   : volume cible (0–1). Calibré pour une écoute au casque sans pic agressif.
+-- pitch : PlaybackSpeed. > 1 = aigu, < 1 = grave.
 
 type SoundCfg = { id: string, vol: number, pitch: number }
 
 local SFX: { [string]: SoundCfg } = {
-	PhaseChange = { id = "rbxassetid://4612379735", vol = 0.40, pitch = 1.00 },
-	Declaration = { id = "rbxassetid://4612379717", vol = 0.25, pitch = 1.35 },
-	Contradiction = { id = "rbxassetid://4612356684", vol = 0.55, pitch = 0.70 },
-	Vote = { id = "rbxassetid://4612379735", vol = 0.30, pitch = 0.85 },
-	VerdictReveal = { id = "rbxassetid://4612356684", vol = 0.65, pitch = 0.50 },
-	Reward = { id = "rbxassetid://4612379717", vol = 0.45, pitch = 1.65 },
+	-- Transition de phase marquante (Testimony, Verdict) — accent sobre et grave
+	PhaseChange = { id = TODO_REPLACE_SOUND_IDS.tension_sting, vol = 0.36, pitch = 0.90 },
+	-- Dépôt d'une déclaration — bruit de manipulation de document
+	Declaration = { id = TODO_REPLACE_SOUND_IDS.paper_slide, vol = 0.28, pitch = 1.10 },
+	-- Incohérence détectée — alerte brève, différenciée du verdict
+	Contradiction = { id = TODO_REPLACE_SOUND_IDS.alarm_short, vol = 0.48, pitch = 0.72 },
+	-- Confirmation de vote — discret, neutre
+	Vote = { id = TODO_REPLACE_SOUND_IDS.low_ding, vol = 0.22, pitch = 1.00 },
+	-- Révélation du verdict — le son le plus impactant du jeu
+	VerdictReveal = { id = TODO_REPLACE_SOUND_IDS.gavel_hit, vol = 0.65, pitch = 0.85 },
+	-- Récompense accordée — positif sans être festif
+	Reward = { id = TODO_REPLACE_SOUND_IDS.reward_chime, vol = 0.42, pitch = 1.45 },
 }
 
 -- ─── Ambiances par phase ──────────────────────────────────────────────────────
--- id  : rbxassetid placeholder — remplacer par l'asset final de chaque phase.
--- vol : volume cible, volontairement bas pour ne pas fatiguer le joueur.
---
--- Intention sonore par phase (à conserver lors du remplacement des assets) :
---   Lobby / Matchmaking  → calme, neutre, attente
---   Intro                → tension douce, présentation du scénario
---   Testimony            → tension plus présente, attention accrue
---   Deliberation         → tension basse et rythmée, réflexion
---   Verdict              → dramatique, court pic d'intensité
---   PostVerdict          → retour au calme, résolution
---   Cleanup              → très léger, transition invisible
+-- Trois niveaux d'intensité : neutre (courtroom) → tension → dramatique.
+-- vol : volontairement bas — l'ambiance ne doit jamais couvrir les sons SFX.
 
 type AmbientCfg = { id: string, vol: number }
 
 local PHASE_AMBIENT: { [string]: AmbientCfg } = {
-	Lobby = { id = "rbxassetid://1847354696", vol = 0.05 },
-	Matchmaking = { id = "rbxassetid://1847354696", vol = 0.05 },
-	Intro = { id = "rbxassetid://4612379735", vol = 0.07 },
-	Testimony = { id = "rbxassetid://4612356684", vol = 0.08 },
-	Deliberation = { id = "rbxassetid://4612356684", vol = 0.06 },
-	Verdict = { id = "rbxassetid://4612379717", vol = 0.09 },
-	PostVerdict = { id = "rbxassetid://1847354696", vol = 0.05 },
-	Cleanup = { id = "rbxassetid://1847354696", vol = 0.04 },
+	Lobby = { id = TODO_REPLACE_SOUND_IDS.ambience_courtroom, vol = 0.05 },
+	Matchmaking = { id = TODO_REPLACE_SOUND_IDS.ambience_courtroom, vol = 0.04 },
+	Intro = { id = TODO_REPLACE_SOUND_IDS.ambience_tension, vol = 0.06 },
+	Testimony = { id = TODO_REPLACE_SOUND_IDS.ambience_tension, vol = 0.07 },
+	Deliberation = { id = TODO_REPLACE_SOUND_IDS.ambience_tension, vol = 0.05 },
+	Verdict = { id = TODO_REPLACE_SOUND_IDS.ambience_dramatic, vol = 0.08 },
+	PostVerdict = { id = TODO_REPLACE_SOUND_IDS.ambience_courtroom, vol = 0.04 },
+	Cleanup = { id = TODO_REPLACE_SOUND_IDS.ambience_courtroom, vol = 0.03 },
 }
 
 -- ─── Paramètres de fondu ─────────────────────────────────────────────────────
