@@ -25,6 +25,7 @@ local RoleTransitionScreen = require(script.ui.RoleTransitionScreen)
 local CameraController = require(script.CameraController)
 local AudioController = require(script.AudioController)
 local CharacterPresenceController = require(script.CharacterPresenceController)
+local CharacterAnimationLayer = require(script.CharacterAnimationLayer)
 
 -- Rôle local du joueur (assigné par le serveur pendant Matchmaking)
 local currentRole: string = ""
@@ -52,6 +53,7 @@ ShopScreen.setup()
 CameraController.setup()
 AudioController.setup()
 CharacterPresenceController.setup()
+CharacterAnimationLayer.setup()
 WelcomeScreen.show()
 VerdictScreen.setOnVoteCast(function()
 	AudioController.play("Vote")
@@ -131,6 +133,7 @@ Net.onClient(RemoteNames.GamePhaseChanged, function(payload)
 	CameraController.onPhaseChanged(typed.Phase)
 	AudioController.onPhaseChanged(typed.Phase)
 	CharacterPresenceController.onPhaseChanged(typed.Phase)
+	CharacterAnimationLayer.onPhaseChanged(typed.Phase)
 	WelcomeScreen.dismiss()
 end)
 
@@ -140,6 +143,7 @@ Net.onClient(RemoteNames.RoleAssigned, function(payload)
 	currentRole = typed.Role
 	currentObjective = typed.ShortDescription
 	CharacterPresenceController.onRoleAssigned(typed.Role)
+	CharacterAnimationLayer.onRoleAssigned(typed.Role)
 	HUD.setRole(typed.Role)
 
 	local roleLabels: { [string]: string } = {
@@ -306,6 +310,18 @@ Net.onClient(RemoteNames.VerdictRevealed, function(payload)
 
 	-- Masquer l'UI active (VerdictScreen pour les Jurés, etc.)
 	hideAllPanels()
+
+	-- Réaction corporelle au verdict (posture one-shot, 2 s)
+	local reactionKind = "neutral"
+	if currentRole == "Liar" and verdict == "Guilty" then
+		reactionKind = "shame" -- Menteur démasqué
+	elseif
+		(currentRole == "Juror" and isCorrect == true) -- Juré qui a bien voté
+		or (currentRole == "HonestWitness" and verdict == "NotGuilty") -- Témoin cru par le jury
+	then
+		reactionKind = "success"
+	end
+	CharacterAnimationLayer.triggerReaction(reactionKind, 2.0)
 
 	-- Séquence dramatique (~1.7 s) puis ouverture du SummaryScreen
 	SummaryScreen.setContradictedFields(contradictedFieldLabels)
