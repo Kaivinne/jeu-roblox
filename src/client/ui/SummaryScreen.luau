@@ -8,6 +8,7 @@ local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 
 local UIUtils = require(script.Parent.UIUtils)
+local AudioController = require(script.Parent.Parent.AudioController)
 
 local SummaryScreen = {}
 
@@ -252,9 +253,13 @@ function SummaryScreen.setup()
 	UIUtils.buttonGradient(replayBtn)
 
 	replayBtn.MouseButton1Click:Connect(function()
+		AudioController.play("ui_click")
 		SummaryScreen.hide()
 	end)
 	UIUtils.hoverButton(replayBtn)
+	replayBtn.MouseEnter:Connect(function()
+		AudioController.play("ui_hover")
+	end)
 end
 
 -- Met à jour la liste des champs contradictoires (Labels) avant show()

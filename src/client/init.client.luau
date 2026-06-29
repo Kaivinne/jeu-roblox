@@ -428,6 +428,7 @@ Net.onClient(RemoteNames.OnboardingStatus, function(payload)
 	local hasSeen = payload.HasSeen
 	if type(hasSeen) == "boolean" and not hasSeen then
 		OnboardingScreen.show(function()
+			AudioController.play("ui_notification") -- premier onboarding complété
 			Net.getEvent(RemoteNames.OnboardingCompleted):FireServer({})
 		end)
 	end

@@ -7,6 +7,7 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 
 local UIUtils = require(script.Parent.UIUtils)
+local AudioController = require(script.Parent.Parent.AudioController)
 
 local ProfilePanel = {}
 
@@ -125,6 +126,9 @@ function ProfilePanel.setup()
 		end
 	end)
 	UIUtils.hoverButton(boutBtn, 0.15)
+	boutBtn.MouseEnter:Connect(function()
+		AudioController.play("ui_hover")
+	end)
 
 	-- Bouton Aide (à droite de BOUTIQUE)
 	local helpBtn = Instance.new("TextButton")
@@ -146,6 +150,9 @@ function ProfilePanel.setup()
 		end
 	end)
 	UIUtils.hoverButton(helpBtn, 0.12)
+	helpBtn.MouseEnter:Connect(function()
+		AudioController.play("ui_hover")
+	end)
 
 	-- Slide depuis la gauche au spawn
 	UIUtils.animateIn(panel, "left", 0.32)

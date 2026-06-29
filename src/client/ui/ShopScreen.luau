@@ -11,6 +11,7 @@ local Net = require(Shared.Net)
 local RemoteNames = require(Shared.RemoteNames)
 
 local UIUtils = require(script.Parent.UIUtils)
+local AudioController = require(script.Parent.Parent.AudioController)
 
 local ShopScreen = {}
 
@@ -161,7 +162,11 @@ local function buildRows(items: { { [string]: any } }, jetons: number)
 			actionBtn.TextSize = 13
 			actionBtn.Active = true
 			UIUtils.hoverButton(actionBtn)
+			actionBtn.MouseEnter:Connect(function()
+				AudioController.play("ui_hover")
+			end)
 			actionBtn.MouseButton1Click:Connect(function()
+				AudioController.play("ui_click")
 				Net.getEvent(RemoteNames.ShopEquip):FireServer({ ItemId = itemId })
 			end)
 		else
@@ -174,7 +179,11 @@ local function buildRows(items: { { [string]: any } }, jetons: number)
 			actionBtn.Active = canAfford
 			if canAfford then
 				UIUtils.hoverButton(actionBtn)
+				actionBtn.MouseEnter:Connect(function()
+					AudioController.play("ui_hover")
+				end)
 				actionBtn.MouseButton1Click:Connect(function()
+					AudioController.play("ui_click")
 					Net.getEvent(RemoteNames.ShopPurchase):FireServer({ ItemId = itemId })
 				end)
 			end
@@ -252,6 +261,7 @@ function ShopScreen.setup()
 	closeX.Parent = header
 	UIUtils.round(closeX, 8)
 	closeX.MouseButton1Click:Connect(function()
+		AudioController.play("ui_cancel")
 		ShopScreen.hide()
 	end)
 
@@ -313,6 +323,7 @@ function ShopScreen.setup()
 	closeBtn.Parent = panel
 	UIUtils.round(closeBtn, 10)
 	closeBtn.MouseButton1Click:Connect(function()
+		AudioController.play("ui_cancel")
 		ShopScreen.hide()
 	end)
 end

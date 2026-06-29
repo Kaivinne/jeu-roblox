@@ -8,6 +8,7 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 
 local UIUtils = require(script.Parent.UIUtils)
+local AudioController = require(script.Parent.Parent.AudioController)
 
 local OnboardingScreen = {}
 
@@ -281,17 +282,26 @@ local function connectButtons()
 	local nb = _nextBtn
 	local sb = _skipBtn
 	if nb then
+		nb.MouseEnter:Connect(function()
+			AudioController.play("ui_hover")
+		end)
 		nb.MouseButton1Click:Connect(function()
 			if _currentSlide < #SLIDES then
+				AudioController.play("ui_click") -- navigation entre slides
 				_currentSlide += 1
 				updateSlide(_currentSlide)
 			else
+				AudioController.play("ui_confirm") -- TERMINER
 				closePanel(true)
 			end
 		end)
 	end
 	if sb then
+		sb.MouseEnter:Connect(function()
+			AudioController.play("ui_hover")
+		end)
 		sb.MouseButton1Click:Connect(function()
+			AudioController.play("ui_cancel") -- Passer
 			closePanel(true)
 		end)
 	end

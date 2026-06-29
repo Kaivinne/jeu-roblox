@@ -10,6 +10,7 @@ local Net = require(Shared.Net)
 local RemoteNames = require(Shared.RemoteNames)
 
 local UIUtils = require(script.Parent.UIUtils)
+local AudioController = require(script.Parent.Parent.AudioController)
 
 local VerdictScreen = {}
 
@@ -188,6 +189,18 @@ function VerdictScreen.setup()
 	end)
 	innocent.MouseButton1Click:Connect(function()
 		onVote("Innocent")
+	end)
+	guilty.MouseEnter:Connect(function()
+		if hasVoted then
+			return
+		end
+		AudioController.play("ui_hover")
+	end)
+	innocent.MouseEnter:Connect(function()
+		if hasVoted then
+			return
+		end
+		AudioController.play("ui_hover")
 	end)
 	-- Pas de hoverButton ici : lockButtons() tweene BackgroundTransparency à 0.6
 	-- après le vote, ce qui entre en conflit avec la valeur base=0 capturée par hover.

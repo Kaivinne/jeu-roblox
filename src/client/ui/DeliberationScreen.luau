@@ -7,6 +7,7 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 
 local UIUtils = require(script.Parent.UIUtils)
+local AudioController = require(script.Parent.Parent.AudioController)
 
 local DeliberationScreen = {}
 
@@ -224,10 +225,18 @@ local function ensureGui()
 		UIUtils.pulse(picked)
 	end
 
+	mentBtn.MouseEnter:Connect(function()
+		AudioController.play("ui_hover")
+	end)
+	vraiBtn.MouseEnter:Connect(function()
+		AudioController.play("ui_hover")
+	end)
 	mentBtn.MouseButton1Click:Connect(function()
+		AudioController.play("ui_click")
 		recordOpinion(mentBtn, vraiBtn)
 	end)
 	vraiBtn.MouseButton1Click:Connect(function()
+		AudioController.play("ui_click")
 		recordOpinion(vraiBtn, mentBtn)
 	end)
 end

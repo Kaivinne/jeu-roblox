@@ -11,6 +11,7 @@ local Net = require(Shared.Net)
 local RemoteNames = require(Shared.RemoteNames)
 
 local UIUtils = require(script.Parent.UIUtils)
+local AudioController = require(script.Parent.Parent.AudioController)
 
 local DeclarationBuilder = {}
 
@@ -150,12 +151,14 @@ local function makeFieldRow(
 	UIUtils.hoverButton(btnRight, 0.18)
 
 	btnLeft.MouseButton1Click:Connect(function()
+		AudioController.play("ui_click")
 		selectedIndex[idx] = ((selectedIndex[idx] - 2) % #opts) + 1
 		valueLabel.Text = opts[selectedIndex[idx]]
 		updateIndicator()
 	end)
 
 	btnRight.MouseButton1Click:Connect(function()
+		AudioController.play("ui_click")
 		selectedIndex[idx] = (selectedIndex[idx] % #opts) + 1
 		valueLabel.Text = opts[selectedIndex[idx]]
 		updateIndicator()
@@ -259,10 +262,14 @@ function DeclarationBuilder.setup()
 	submitBtn = submit
 
 	UIUtils.hoverButton(submit)
+	submit.MouseEnter:Connect(function()
+		AudioController.play("ui_hover")
+	end)
 	submit.MouseButton1Click:Connect(function()
 		if not canSubmit then
 			return
 		end
+		AudioController.play("ui_confirm") -- valider la déclaration
 		canSubmit = false
 
 		fireServer(RemoteNames.DeclarationSubmitted, {
