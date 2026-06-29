@@ -238,6 +238,19 @@ local function addShaft(
 	return shaft
 end
 
+-- Part invisible servant d'ancre 3D pour l'audio spatial côté client (M4.6).
+-- Trouvée par AudioController via workspace.Courthouse:FindFirstChild(name).
+local function audioAnchor(parent: Instance, name: string, pos: Vector3)
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = Vector3.new(0.1, 0.1, 0.1)
+	p.CFrame = CFrame.new(pos)
+	p.Anchored = true
+	p.CanCollide = false
+	p.Transparency = 1
+	p.Parent = parent
+end
+
 -- ─── Construction ─────────────────────────────────────────────────────────────
 
 function WorldBuilder.buildCourthouse()
@@ -470,6 +483,16 @@ function WorldBuilder.buildCourthouse()
 	dust.Color = ColorSequence.new(Color3.fromRGB(228, 215, 190))
 	dust.LightInfluence = 0.9
 	dust.Parent = dustPart
+
+	-- ── Ancres audio spatiales (M4.6) ─────────────────────────────────────────
+	-- Parts invisibles, sans collision. AudioController (client) les trouve par nom
+	-- pour positionner les sons spatialisés. Aucun effet visuel ni gameplay.
+	audioAnchor(root, "AudioAnchor_Door", Vector3.new(0, 2, 33)) -- entrée salle
+	audioAnchor(root, "AudioAnchor_Gavel", Vector3.new(4, 5.5, -27.5)) -- bureau juge
+	audioAnchor(root, "AudioAnchor_Jury", Vector3.new(21, 2, -14)) -- box jurés
+	audioAnchor(root, "AudioAnchor_Gallery", Vector3.new(0, 2, 18)) -- galerie spectateurs
+	audioAnchor(root, "AudioAnchor_Clock", Vector3.new(0, 8, -35.5)) -- mur arrière
+	audioAnchor(root, "AudioAnchor_Aisle", Vector3.new(0, 1, -4)) -- allée centrale
 
 	-- ── SpawnLocation Lobby ───────────────────────────────────────────────────
 

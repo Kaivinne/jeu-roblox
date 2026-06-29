@@ -219,6 +219,27 @@ local COOLDOWN: { [string]: number } = {
 	footsteps_wood = 0.25,
 }
 
+-- ─── MaxDistance par son spatialisé (studs) ───────────────────────────────────
+-- Sons non listés ici → MaxDistance 40 par défaut dans playAtAnchor.
+
+local SPATIAL_MAX_DIST: { [string]: number } = {
+	door_open = 38,
+	door_close = 38,
+	footsteps_wood = 22,
+	chair_move = 18,
+	chair_sit = 18,
+	gavel_hit = 60,
+	crowd_murmur = 55,
+	clock_tick = 42,
+}
+
+-- Sons en loop dont la source 3D est une ancre permanente dans workspace.Courthouse.
+-- Listés ici → Sound parenté à l'ancre au lieu de SoundService (spatial réel).
+local LOOP_ANCHOR: { [string]: string } = {
+	crowd_murmur = "AudioAnchor_Gallery",
+	clock_tick = "AudioAnchor_Clock",
+}
+
 -- ─── Paramètres de fondu d'ambiance ──────────────────────────────────────────
 
 local FADE_OUT = 0.80
@@ -249,6 +270,14 @@ local function canPlay(name: string): boolean
 	end
 	_lastPlayTime[name] = now
 	return true
+end
+
+local function findAnchor(anchorName: string): BasePart?
+	local courthouse = workspace:FindFirstChild("Courthouse")
+	if not courthouse then
+		return nil
+	end
+	return courthouse:FindFirstChild(anchorName) :: BasePart?
 end
 
 local function cancelAmbientTransition()
@@ -357,7 +386,21 @@ function AudioController.setup()
 		if cfg.looped then
 			s.Looped = true
 		end
-		s.Parent = SoundService
+		-- Sons en loop avec ancre : source spatiale permanente (crowd, horloge).
+		-- Fallback SoundService si l'ancre n'existe pas encore (hot-reload Studio).
+		local loopAnchorName = LOOP_ANCHOR[name]
+		if cfg.looped and loopAnchorName then
+			local anch = findAnchor(loopAnchorName)
+			if anch then
+				s.RollOffMode = Enum.RollOffMode.InverseTapered
+				s.MaxDistance = SPATIAL_MAX_DIST[name] or 50
+				s.Parent = anch
+			else
+				s.Parent = SoundService
+			end
+		else
+			s.Parent = SoundService
+		end
 		sounds[name] = s
 	end
 
@@ -414,6 +457,60 @@ function AudioController.play(name: string)
 	end)
 end
 
+-- Joue un son one-shot spatialisé depuis l'ancre nommée dans workspace.Courthouse.
+-- Crée une Part temporaire, joue le son, puis détruit les deux après lecture.
+-- Silencieux si l'ancre est absente — aucun effet sur le gameplay.
+function AudioController.playAtAnchor(name: string, anchorName: string)
+	if not canPlay(name) then
+		return
+	end
+	local cfg = SOUNDS[name]
+	if not cfg then
+		return
+	end
+	local anchor = findAnchor(anchorName)
+	if not anchor then
+		return
+	end
+	local maxDist = SPATIAL_MAX_DIST[name] or 40
+	pcall(function()
+		local part = Instance.new("Part")
+		part.Name = "AudioSpatial_" .. name
+		part.Size = Vector3.new(0.1, 0.1, 0.1)
+		part.CFrame = anchor.CFrame
+		part.Anchored = true
+		part.CanCollide = false
+		part.Transparency = 1
+		part.Parent = workspace:FindFirstChild("Courthouse") or workspace
+		local s = Instance.new("Sound")
+		s.SoundId = cfg.id
+		s.Volume = cfg.vol
+		s.PlaybackSpeed = cfg.pitch
+		s.RollOffMode = Enum.RollOffMode.InverseTapered
+		s.MaxDistance = maxDist
+		local grp = _groups[cfg.group]
+		if grp then
+			pcall(function()
+				s.SoundGroup = grp
+			end)
+		end
+		s.Parent = part
+		s:Play()
+		local cleaned = false
+		local function doCleanup()
+			if cleaned then
+				return
+			end
+			cleaned = true
+			pcall(function()
+				part:Destroy()
+			end)
+		end
+		s.Ended:Connect(doCleanup)
+		task.delay(30, doCleanup)
+	end)
+end
+
 -- Adapte l'ambiance musicale et la couche d'environnement à la phase de jeu.
 -- Ignoré si la phase est identique à la courante.
 function AudioController.onPhaseChanged(phase: string)
@@ -427,6 +524,25 @@ function AudioController.onPhaseChanged(phase: string)
 	-- whoosh est géré par applyPhaseUI pour Intro — pas de doublon ici
 	if phase == "Testimony" or phase == "Verdict" then
 		AudioController.play("transition_sweep")
+	end
+
+	-- Sons spatialisés de scène — portes, pas, chaises, depuis les ancres WorldBuilder
+	if phase == "Intro" then
+		AudioController.playAtAnchor("door_open", "AudioAnchor_Door")
+		task.delay(0.6, function()
+			AudioController.playAtAnchor("footsteps_wood", "AudioAnchor_Aisle")
+		end)
+		task.delay(1.2, function()
+			AudioController.playAtAnchor("chair_move", "AudioAnchor_Jury")
+		end)
+	elseif phase == "Testimony" then
+		task.delay(0.3, function()
+			AudioController.playAtAnchor("chair_sit", "AudioAnchor_Jury")
+		end)
+	elseif phase == "PostVerdict" then
+		task.delay(1.0, function()
+			AudioController.playAtAnchor("door_open", "AudioAnchor_Door")
+		end)
 	end
 
 	-- Fondu croisé de l'ambiance musicale

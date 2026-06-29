@@ -317,7 +317,7 @@ Net.onClient(RemoteNames.VerdictRevealed, function(payload)
 
 	-- Séquence sonore du verdict décalée pour accompagner la cinématique (~1.7 s)
 	task.delay(0.8, function()
-		AudioController.play("gavel_hit")
+		AudioController.playAtAnchor("gavel_hit", "AudioAnchor_Gavel")
 	end)
 	local verdictSound = if verdict == "Guilty" then "guilty_reveal" else "innocent_reveal"
 	task.delay(1.6, function()
